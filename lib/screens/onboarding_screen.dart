@@ -1,21 +1,23 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'package:flutter_svg/svg.dart';
-import 'package:simplicity_coin/main.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:simplicity_coin/blocs/wallet_bloc.dart';
 import 'package:simplicity_coin/screens/createWallet_screen.dart';
+import 'package:simplicity_coin/screens/home_screen.dart';
 import 'package:simplicity_coin/screens/loadWallet_screen.dart';
+import 'package:simplicity_coin/main.dart';
+import 'package:simplicity_coin/screens/wallet_screen.dart';
+import 'package:simplicity_coin/services/wallet_service.dart';
 
 class OnboardingScreen extends StatefulWidget {
   @override
   _OnboardingScreenState createState() => _OnboardingScreenState();
 }
 
-
-
 class _OnboardingScreenState extends State<OnboardingScreen> {
-
   int _currentPage = 0;
   final PageController _pageController = PageController();
+  bool _isAccountCreated = false;
 
   final List<Map<String, String>> _pages = [
     {
@@ -36,8 +38,34 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   ];
 
   @override
+  void initState() {
+    super.initState();
+    _checkAccountCreationStatus();
+  }
+
+  Future<void> _checkAccountCreationStatus() async {
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    bool? isCreated = prefs.getBool("accountCreated");
+
+    if (isCreated == true) {
+      // Account is already created, skip to the main menu
+     Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder: (context) =>
+         WalletScreen(),
+      ),
+    );
+    } else {
+      // Stay on the onboarding screen
+      setState(() {
+        _isAccountCreated = false;
+      });
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    
     return Scaffold(
       body: SafeArea(
         child: Column(
@@ -98,13 +126,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
 }
 
-Future<bool> isRegistered() async {
-            final storage = new FlutterSecureStorage();
-
-        List<String> passkey = (await storage.read(key: "passkey")) as List<String>;
-
-        return passkey != [];
-}
 class OnboardingPage extends StatelessWidget {
   final String title;
   final String description;
@@ -129,6 +150,7 @@ class OnboardingPage extends StatelessWidget {
     );
   }
 }
+
 class MainMenuScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
@@ -144,7 +166,7 @@ class MainMenuScreen extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              SvgPicture.asset('assets/fox_logo.svg', height: 100),
+              Image.asset('assets/fox_logo.png', height: 100),
               SizedBox(height: 32),
               Text(
                 'Welcome to MetaMask',

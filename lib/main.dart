@@ -1,15 +1,35 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:simplicity_coin/blocs/createWallet_bloc.dart';
+import 'package:simplicity_coin/blocs/wallet_bloc.dart';
+import 'package:simplicity_coin/services/wallet_service.dart';
 
 import 'screens/onboarding_screen.dart';
 
-void main() => runApp(
-  
-  BlocProvider(
-        create: (_) => CreateWalletBloc(),
-        child: MyApp()));
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialize SharedPreferences instance
+  final SharedPreferences prefs = await SharedPreferences.getInstance();
+  prefs.setStringList("nodes", [
+    "http://10.0.2.2:5000",
+    "http://10.0.2.2:5001",
+  ]);
+  runApp(
+    MultiBlocProvider(providers: [
+          BlocProvider(
+      create: (_) => CreateWalletCubit(prefs), // Pass SharedPreferences instance
+    ),
+        BlocProvider(
+      create: (_) => WalletCubit(prefs , WalletService()), // Pass SharedPreferences instance
+    ),
+    ], child: MyApp())
+
+  );
+}
+
 
 class MyApp extends StatelessWidget {
   @override
@@ -33,7 +53,7 @@ class MyApp extends StatelessWidget {
           ),
         ),
       ),
-      home: OnboardingScreen(),
+      home:  OnboardingScreen(),
     );
   }
 }

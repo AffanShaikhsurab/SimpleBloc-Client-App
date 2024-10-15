@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:simplicity_coin/blocs/createWallet_bloc.dart';
-import 'package:simplicity_coin/screens/wallet_screen.dart';
+import 'package:simplicity_coin/blocs/wallet_bloc.dart';
+import 'package:simplicity_coin/services/wallet_service.dart';
+import 'wallet_screen.dart'; // Replace with your wallet screen import
 
 class CreateWalletScreen extends StatefulWidget {
   @override
@@ -34,10 +37,9 @@ class _CreateWalletScreenState extends State<CreateWalletScreen> {
   }
 
   void _validatePassword(String value) {
-    // Add your password validation logic here
     setState(() {
       _password = value;
-      _isPasswordValid = value.length >= 8; // Example: password must be at least 8 characters
+      _isPasswordValid = value.length >= 8;
     });
   }
 
@@ -56,17 +58,32 @@ class _CreateWalletScreenState extends State<CreateWalletScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.black,
-      body:
-       SafeArea(
-        child: PageView(
-          controller: _pageController,
-          physics: NeverScrollableScrollPhysics(),
-          children: [
-            _buildCreatePasswordPage(),
-            _buildSecureWalletPage(),
-            _buildVerifyRecoveryKeysPage(),
-            _buildCongratulationsPage(),
-          ],
+      body: BlocListener<CreateWalletCubit, CreateWalletState>(
+        listener: (context, state) {
+          if (state == CreateWalletState.loading) {
+            // Show loading indicator or message
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Processing...')),
+            );
+          } else if (state == CreateWalletState.success) {
+            _nextPage();
+          } else if (state == CreateWalletState.failure) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Failed to process. Please try again.')),
+            );
+          }
+        },
+        child: SafeArea(
+          child: PageView(
+            controller: _pageController,
+            physics: NeverScrollableScrollPhysics(),
+            children: [
+              _buildCreatePasswordPage(),
+              _buildSecureWalletPage(),
+              _buildVerifyRecoveryKeysPage(),
+              _buildCongratulationsPage(),
+            ],
+          ),
         ),
       ),
     );
@@ -126,12 +143,9 @@ class _CreateWalletScreenState extends State<CreateWalletScreen> {
           Spacer(),
           ElevatedButton(
             child: Text('CREATE WALLET'),
-            onPressed:(){
-                if (_isPasswordValid && _agreedToTerms) {
-                  BlocProvider.of<CreateWalletBloc>(context).createWallet( _password);
-                    _nextPage();
-            }
-            },
+            onPressed: _isPasswordValid && _agreedToTerms
+                ? () => BlocProvider.of<CreateWalletCubit>(context).createWallet(_password)
+                : null,
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.orange,
               minimumSize: Size(double.infinity, 50),
@@ -185,7 +199,7 @@ class _CreateWalletScreenState extends State<CreateWalletScreen> {
             onPressed: () {
               Clipboard.setData(ClipboardData(text: _recoveryPhrase.join(' ')));
               ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('Recovery phrase copied to clipboard'))
+                SnackBar(content: Text('Recovery phrase copied to clipboard')),
               );
             },
             style: ElevatedButton.styleFrom(
@@ -196,9 +210,7 @@ class _CreateWalletScreenState extends State<CreateWalletScreen> {
           Spacer(),
           ElevatedButton(
             child: Text('SUBMIT'),
-            onPressed: (){
-              BlocProvider.of<CreateWalletBloc>(context).storePasskey( _recoveryPhrase);
-            },
+            onPressed: () => BlocProvider.of<CreateWalletCubit>(context).storePasskey(_recoveryPhrase),
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.orange,
               minimumSize: Size(double.infinity, 50),
@@ -237,7 +249,7 @@ class _CreateWalletScreenState extends State<CreateWalletScreen> {
                 child: TextField(
                   style: TextStyle(color: Colors.white),
                   decoration: InputDecoration(
-                    hintText: '${index + 1}.',
+                    hintText: '${index + 1}',
                     hintStyle: TextStyle(color: Colors.grey),
                     fillColor: Colors.grey[900],
                     filled: true,
@@ -247,9 +259,7 @@ class _CreateWalletScreenState extends State<CreateWalletScreen> {
                     ),
                   ),
                   onChanged: (value) {
-                    setState(() {
-                      _enteredPhrase[index] = value;
-                    });
+                    _enteredPhrase[index] = value.trim();
                   },
                 ),
               );
@@ -257,11 +267,8 @@ class _CreateWalletScreenState extends State<CreateWalletScreen> {
           ),
           Spacer(),
           ElevatedButton(
-            child: Text('SUBMIT'),
-            onPressed: (){
-               BlocProvider.of<PasskeyBloc>(context).readPasskey();
-               //if _Recorverpasskey == readPasskey() then go to gongratualion page 
-            },
+            child: Text('VERIFY'),
+            onPressed: _validateRecoveryPhrase,
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.orange,
               minimumSize: Size(double.infinity, 50),
@@ -275,41 +282,58 @@ class _CreateWalletScreenState extends State<CreateWalletScreen> {
     );
   }
 
-  Widget _buildCongratulationsPage() {
-    return Padding(
-      padding: EdgeInsets.all(16.0),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.thumb_up, size: 100, color: Colors.orange),
-          SizedBox(height: 32),
-          Text(
-            'Congratulations!',
-            style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white),
-          ),
-          SizedBox(height: 16),
-          Text(
-            'You have successfully created and protected your wallet! Remember to keep your Secret Recovery Phrase safe. You can start transactions.',
-            textAlign: TextAlign.center,
-            style: TextStyle(color: Colors.grey),
-          ),
-          SizedBox(height: 32),
-          ElevatedButton(
-            child: Text('GO TO WALLET'),
-            onPressed: () {
-                      Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => WalletScreen()));
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.orange,
-              minimumSize: Size(double.infinity, 50),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(25),
+Widget _buildCongratulationsPage()  {
+  return BlocConsumer<CreateWalletCubit, CreateWalletState>(
+    listener: (context, state) async {
+      if (state == CreateWalletState.success) {
+        BlocProvider.of<CreateWalletCubit>(context).createKeys();
+      } else if (state == CreateWalletState.keysCreated) {
+        var shared_preferences = await SharedPreferences.getInstance();
+        Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => 
+        WalletScreen()
+        ));
+      } else if (state == CreateWalletState.failure) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to create wallet. Please try again.')),
+        );
+      }
+    },
+    builder: (context, state) {
+      return Padding(
+        padding: EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Icon(Icons.check_circle, size: 100, color: Colors.green),
+            SizedBox(height: 32),
+            Text(
+              'Congratulations!',
+              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white),
+            ),
+            SizedBox(height: 8),
+            Text(
+              'You have successfully created your MetaMask wallet.',
+              style: TextStyle(color: Colors.grey),
+              textAlign: TextAlign.center,
+            ),
+            Spacer(),
+            ElevatedButton(
+              child: Text('GO TO WALLET'),
+              onPressed: state == CreateWalletState.loading
+                  ? null
+                  : () => BlocProvider.of<CreateWalletCubit>(context).createAccount(),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.orange,
+                minimumSize: Size(double.infinity, 50),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(25),
+                ),
               ),
             ),
-          ),
-        ],
-      ),
-    );
-  }
+          ],
+        ),
+      );
+    },
+  );
 }
-
+}

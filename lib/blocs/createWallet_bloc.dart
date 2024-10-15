@@ -1,36 +1,109 @@
-import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'dart:convert';
 
-class CreateWalletBloc  extends Cubit<bool>{
-  CreateWalletBloc() : super(false);
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:simplicity_coin/services/account_service.dart';
+
+// Enum to represent the state of CreateWalletCubit
+enum CreateWalletState { initial, loading, success, failure , keysCreated }
+
+class CreateWalletCubit extends Cubit<CreateWalletState> {
+  final SharedPreferences _prefs;
+  var accountCreated = false;
+  CreateWalletCubit(this._prefs) : super(CreateWalletState.initial);
 
   Future<void> createWallet(String password) async {
-        final storage = new FlutterSecureStorage();
-
-        await storage.write(key: "password", value: password);
-
-        return emit(true);
-}
-
+    emit(CreateWalletState.loading);
+    try {
+      await _prefs.setString("password", password); // Store password
+      emit(CreateWalletState.success);
+    } catch (e) {
+      print("the issue is $e");
+      emit(CreateWalletState.failure);
+    }
+  }
 
   Future<void> storePasskey(List<String> passkey) async {
-        final storage = new FlutterSecureStorage();
+    emit(CreateWalletState.loading);
+    try {
+      await _prefs.setStringList("passkey", passkey); // Store passkey as a List<String>
+      emit(CreateWalletState.success);
+    } catch (e) {
+      emit(CreateWalletState.failure);
+    }
+  }
 
-        await storage.write(key: "passkey", value: passkey.toString());
+   Future<void> createAccount() async {
+    emit(CreateWalletState.loading);
+    try {
+      await _prefs.setBool("accountCreated", true); // Store passkey as a List<String>
+      emit(CreateWalletState.success);
+    } catch (e) {
+      emit(CreateWalletState.failure);
+    }
+  }
 
-        return emit(true);
+   Future<void> isAccountCreated() async {
+    emit(CreateWalletState.loading);
+    if (_prefs.getBool("accountCreated") == true) {
+      emit(CreateWalletState.success);
+    }else{
+      emit(CreateWalletState.failure);
+    }      
+      emit(CreateWalletState.success);
+   
+  }
+  Future<void> createKeys() async {
+    if (state == CreateWalletState.keysCreated) {
+      return;
+    }
+
+    emit(CreateWalletState.loading);
+    try {
+      final account = await WalletClient().createAccount();
+      String accountJson = jsonEncode(account);
+      await _prefs.setString("account", accountJson);
+      emit(CreateWalletState.keysCreated);
+    } catch (e) {
+      print("Error creating keys: $e");
+      emit(CreateWalletState.failure);
+    }
+  }
+
+  Future<void> readAccount() async {
+  try {
+
+    final accountJson = _prefs.getString("account"); // Retrieve JSON string from SharedPreferences
+    if (accountJson != null) {
+      final account = jsonDecode(accountJson); // Convert JSON string back to a Dart object
+      // Use the account object as needed
+    } else {
+      // Handle the case where account is not found
+    }
+  } catch (e) {
+    print("Error reading account: $e");
+  }
 }
 }
 
 
-class PasskeyBloc  extends Cubit<List<String>>{
-  PasskeyBloc() : super([]);
-  
+
+
+class PasskeyCubit extends Cubit<List<String>> {
+  final SharedPreferences _prefs;
+
+  PasskeyCubit(this._prefs) : super([]);
+
   Future<void> readPasskey() async {
-        final storage = new FlutterSecureStorage();
-
-        List<String> passkey = (await storage.read(key: "passkey")) as List<String>;
-
-        return emit(passkey);
+    try {
+      final passkey = _prefs.getStringList("passkey"); // Retrieve passkey list
+      if (passkey != null) {
+        emit(passkey);
+      } else {
+        emit([]); // Emit empty list if no passkey found
+      }
+    } catch (e) {
+      emit([]);
+    }
+  }
 }
-} 
