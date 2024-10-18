@@ -6,6 +6,7 @@ import 'package:simplicity_coin/screens/createWallet_screen.dart';
 import 'package:simplicity_coin/screens/home_screen.dart';
 import 'package:simplicity_coin/screens/loadWallet_screen.dart';
 import 'package:simplicity_coin/main.dart';
+import 'package:simplicity_coin/screens/password_screen.dart';
 import 'package:simplicity_coin/screens/wallet_screen.dart';
 import 'package:simplicity_coin/services/wallet_service.dart';
 
@@ -21,19 +22,19 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   final List<Map<String, String>> _pages = [
     {
-      'title': 'Welcome to MetaMask!',
-      'description': 'Trusted by millions, Picco Wallets is a secure wallet making the world of web3 accessible to all.',
-      'image': 'assets/fox_logo.png',
+      'title': 'Welcome to Simplicity!',
+      'description': 'Trusted by millions, Simplicity Wallets is a secure wallet making the world of web3 accessible to all.',
+      'image': './assest/coin.png',
     },
     {
       'title': 'Manage your digital assets',
-      'description': 'Store, spend and send digital assets like tokens, ethereum, unique collectibles.',
-      'image': 'assets/wallet.png',
+      'description': 'Store, spend and send digital assets .',
+      'image': 'assest/wallet.png',
     },
     {
       'title': 'Your gateway to web3',
-      'description': 'Login with MetaMask and make transactions to invest, earn, play games, sell and more!',
-      'image': 'assets/gateway.png',
+      'description': 'Login with Simplicity and make transactions to invest, earn, play games, sell and more!',
+      'image': 'assest/gateway.png',
     },
   ];
 
@@ -42,20 +43,28 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     super.initState();
     _checkAccountCreationStatus();
   }
+ Future<void> _checkPasswordStatus() async {
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    final String? storedPassword = prefs.getString('password');
 
+    if (storedPassword != null) {
+      // Password exists, navigate to PasswordEntryScreen
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (context) => PasswordEntryScreen()),
+      );
+    } else {
+      // No password set, continue with onboarding
+      _checkAccountCreationStatus();
+    }
+  }
   Future<void> _checkAccountCreationStatus() async {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
     bool? isCreated = prefs.getBool("accountCreated");
 
     if (isCreated == true) {
       // Account is already created, skip to the main menu
-     Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(
-        builder: (context) =>
-         WalletScreen(),
-      ),
-    );
+        _checkAccountCreationStatus();
+    
     } else {
       // Stay on the onboarding screen
       setState(() {

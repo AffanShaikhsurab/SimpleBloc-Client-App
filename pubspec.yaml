@@ -31,3 +31,9 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+
+  assets:
+    - assest/
+    - assest/wallet.png
+    - assest/coin.png
+    - assest/gateway.png
