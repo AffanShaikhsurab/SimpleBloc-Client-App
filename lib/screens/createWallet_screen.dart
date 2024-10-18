@@ -19,9 +19,10 @@ class _CreateWalletScreenState extends State<CreateWalletScreen> {
     'king', 'blue', 'glow', 'black', 'true', 'phone',
     'winter', 'light', 'sorry', 'roll', 'mind', 'soul'
   ];
-  List<String> _enteredPhrase = List.filled(12, '');
+  List<String> _enteredPhrase = List.filled(24, '');
   String _password = '';
   bool _isPasswordValid = false;
+
   bool _agreedToTerms = false;
 
   void _nextPage() {
@@ -157,131 +158,103 @@ class _CreateWalletScreenState extends State<CreateWalletScreen> {
         ],
       ),
     );
-  }
-
-  Widget _buildSecureWalletPage() {
-    return Padding(
-      padding: EdgeInsets.all(16.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Secure your wallet',
-            style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white),
-          ),
-          SizedBox(height: 8),
-          Text(
-            'These recovery phrases are the only way to restore your wallet. Write it down in order on a piece of paper and store it in a safe place.',
-            style: TextStyle(color: Colors.grey),
-          ),
-          SizedBox(height: 32),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: List.generate(12, (index) {
-              return Container(
-                padding: EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Colors.grey[900],
-                  borderRadius: BorderRadius.circular(8),
+  }Widget _buildSecureWalletPage() {
+  return BlocConsumer<CreateWalletCubit, CreateWalletState>(
+    listener: (context, state) {
+      if (state == CreateWalletState.phraseKeyCreated) {
+        context.read<PasskeyCubit>().readPasskey();
+      }
+    },
+    builder: (context, state) {
+      return BlocBuilder<PasskeyCubit, List<String>>(
+        builder: (context, recoveryPhrase) {
+          if (state == CreateWalletState.loading) {
+            return Center(child: CircularProgressIndicator());
+          }
+          
+          if (recoveryPhrase.isEmpty) {
+            return Center(
+              child: ElevatedButton(
+                child: Text('Generate Recovery Phrase'),
+                onPressed: () => context.read<CreateWalletCubit>().generateAndStorePasskey(),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.orange,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(25),
+                  ),
                 ),
-                child: Text(
-                  '${index + 1}. ${_recoveryPhrase[index]}',
-                  style: TextStyle(color: Colors.white),
-                ),
-              );
-            }),
-          ),
-          SizedBox(height: 16),
-          ElevatedButton.icon(
-            icon: Icon(Icons.copy),
-            label: Text('Copy'),
-            onPressed: () {
-              Clipboard.setData(ClipboardData(text: _recoveryPhrase.join(' ')));
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('Recovery phrase copied to clipboard')),
-              );
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.transparent,
-              foregroundColor: Colors.orange,
-            ),
-          ),
-          Spacer(),
-          ElevatedButton(
-            child: Text('SUBMIT'),
-            onPressed: () => BlocProvider.of<CreateWalletCubit>(context).storePasskey(_recoveryPhrase),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.orange,
-              minimumSize: Size(double.infinity, 50),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(25),
               ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+            );
+          }
 
-  Widget _buildVerifyRecoveryKeysPage() {
-    return Padding(
-      padding: EdgeInsets.all(16.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Verify Secret Recovery Keys',
-            style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white),
-          ),
-          SizedBox(height: 8),
-          Text(
-            'Enter the secret recovery keys given to you in the correct order.',
-            style: TextStyle(color: Colors.grey),
-          ),
-          SizedBox(height: 32),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: List.generate(12, (index) {
-              return Container(
-                width: 100,
-                child: TextField(
-                  style: TextStyle(color: Colors.white),
-                  decoration: InputDecoration(
-                    hintText: '${index + 1}',
-                    hintStyle: TextStyle(color: Colors.grey),
-                    fillColor: Colors.grey[900],
-                    filled: true,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: BorderSide.none,
+          return Padding(
+            padding: EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Secure your wallet',
+                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white),
+                ),
+                SizedBox(height: 8),
+                Text(
+                  'These recovery phrases are the only way to restore your wallet. Write it down in order on a piece of paper and store it in a safe place.',
+                  style: TextStyle(color: Colors.grey),
+                ),
+                SizedBox(height: 32),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: List.generate(recoveryPhrase.length, (index) {
+                    return Container(
+                      padding: EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.grey[900],
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        '${index + 1}. ${recoveryPhrase[index]}',
+                        style: TextStyle(color: Colors.white),
+                      ),
+                    );
+                  }),
+                ),
+                SizedBox(height: 16),
+                ElevatedButton.icon(
+                  icon: Icon(Icons.copy),
+                  label: Text('Copy'),
+                  onPressed: () {
+                    Clipboard.setData(ClipboardData(text: recoveryPhrase.join(' ')));
+                    print(recoveryPhrase.join(' '));
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Recovery phrase copied to clipboard')),
+                    );
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.transparent,
+                    foregroundColor: Colors.orange,
+                  ),
+                ),
+                Spacer(),
+                ElevatedButton(
+                  child: Text('SUBMIT'),
+                  onPressed: () => _nextPage(),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.orange,
+                    minimumSize: Size(double.infinity, 50),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(25),
                     ),
                   ),
-                  onChanged: (value) {
-                    _enteredPhrase[index] = value.trim();
-                  },
                 ),
-              );
-            }),
-          ),
-          Spacer(),
-          ElevatedButton(
-            child: Text('VERIFY'),
-            onPressed: _validateRecoveryPhrase,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.orange,
-              minimumSize: Size(double.infinity, 50),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(25),
-              ),
+              ],
             ),
-          ),
-        ],
-      ),
-    );
-  }
-
+          );
+        },
+      );
+    },
+  );
+}
 Widget _buildCongratulationsPage()  {
   return BlocConsumer<CreateWalletCubit, CreateWalletState>(
     listener: (context, state) async {
@@ -336,4 +309,128 @@ Widget _buildCongratulationsPage()  {
     },
   );
 }
+
+Widget _buildVerifyRecoveryKeysPage() {
+  final TextEditingController pasteController = TextEditingController();
+  final List<FocusNode> focusNodes = List.generate(24, (_) => FocusNode());
+  final List<TextEditingController> controllers = List.generate(24, (_) => TextEditingController());
+
+  return StatefulBuilder(
+    builder: (BuildContext context, StateSetter setState) {
+      return Padding(
+        padding: EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Verify Secret Recovery Keys',
+              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white),
+            ),
+            SizedBox(height: 8),
+            Text(
+              'Enter the secret recovery keys given to you in the correct order.',
+              style: TextStyle(color: Colors.grey),
+            ),
+            SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: pasteController,
+                    style: TextStyle(color: Colors.white),
+                    decoration: InputDecoration(
+                      hintText: 'Paste your recovery phrase here',
+                      hintStyle: TextStyle(color: Colors.grey),
+                      fillColor: Colors.grey[900],
+                      filled: true,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide.none,
+                      ),
+                    ),
+                  ),
+                ),
+                SizedBox(width: 8),
+                ElevatedButton(
+                  child: Text('Paste'),
+                  onPressed: () async {
+                    ClipboardData? clipboardData = await Clipboard.getData(Clipboard.kTextPlain);
+                    if (clipboardData != null && clipboardData.text != null) {
+                      List<String> words = clipboardData.text!.split(' ');
+                      if (words.length == 24) {
+                        for (int i = 0; i < 24; i++) {
+                          await Future.delayed(Duration(milliseconds: 50 * i));
+                          setState(() {
+                            controllers[i].text = words[i];
+                            _enteredPhrase[i] = words[i];
+                          });
+                        }
+                      } else {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('Invalid recovery phrase. Please check and try again.')),
+                        );
+                      }
+                    }
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.orange,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            SizedBox(height: 16),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: List.generate(24, (index) {
+                return Container(
+                  width: 100,
+                  child: TextField(
+                    controller: controllers[index],
+                    focusNode: focusNodes[index],
+                    style: TextStyle(color: Colors.white),
+                    decoration: InputDecoration(
+                      hintText: '${index + 1}',
+                      hintStyle: TextStyle(color: Colors.grey),
+                      fillColor: Colors.grey[900],
+                      filled: true,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide.none,
+                      ),
+                    ),
+                    onChanged: (value) {
+                      _enteredPhrase[index] = value.trim();
+                      if (value.isNotEmpty && index < 11) {
+                        focusNodes[index + 1].requestFocus();
+                      }
+                    },
+                  ),
+                );
+              }),
+            ),
+            Spacer(),
+            ElevatedButton(
+              child: Text('VERIFY'),
+              onPressed: () {
+                context.read<CreateWalletCubit>().verifyRecoveryPhrase(_enteredPhrase);
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.orange,
+                minimumSize: Size(double.infinity, 50),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(25),
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    },
+  );
+}
+
 }

@@ -14,13 +14,16 @@ void main() async {
   // Initialize SharedPreferences instance
   final SharedPreferences prefs = await SharedPreferences.getInstance();
   prefs.setStringList("nodes", [
-    "http://10.0.2.2:5000",
-    "http://10.0.2.2:5001",
+    "https://simplicity-server1.onrender.com",
+    "https://simplicity-server.onrender.com",
   ]);
   runApp(
     MultiBlocProvider(providers: [
           BlocProvider(
       create: (_) => CreateWalletCubit(prefs), // Pass SharedPreferences instance
+    ),
+    BlocProvider(
+      create: (_) => PasskeyCubit(prefs), // Pass SharedPreferences instance
     ),
         BlocProvider(
       create: (_) => WalletCubit(prefs , WalletService()), // Pass SharedPreferences instance

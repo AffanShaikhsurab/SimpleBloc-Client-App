@@ -1,12 +1,20 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:pointycastle/api.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:simplicity_coin/services/account_service.dart';
 
 // Enum to represent the state of CreateWalletCubit
-enum CreateWalletState { initial, loading, success, failure , keysCreated }
-
+enum CreateWalletState {
+  initial,
+  loading,
+  success,
+  failure,
+  keysCreated,
+  phraseKeyCreated
+}
 class CreateWalletCubit extends Cubit<CreateWalletState> {
   final SharedPreferences _prefs;
   var accountCreated = false;
@@ -19,6 +27,55 @@ class CreateWalletCubit extends Cubit<CreateWalletState> {
       emit(CreateWalletState.success);
     } catch (e) {
       print("the issue is $e");
+      emit(CreateWalletState.failure);
+    }
+  }
+Future<void> generateAndStorePasskey() async {
+    emit(CreateWalletState.loading);
+    try {
+      final account = await WalletClient().createAccount();
+      final privateKey = account['privateKey'];
+      
+      // Convert private key to mnemonic
+      final mnemonic = await WalletClient().convertToMnemonic(privateKey);
+      
+      await _prefs.setStringList("passkey", mnemonic);
+      await _prefs.setString("privateKey", privateKey);
+      
+      emit(CreateWalletState.phraseKeyCreated);
+    } catch (e) {
+      print("Error generating passkey: $e");
+      emit(CreateWalletState.failure);
+    }
+  }
+
+ Future<void> validatedPasskey(List<String> mnemonic) async {
+    emit(CreateWalletState.loading);
+    try {
+      final keyPair = await WalletClient().convertToPrivateKey(mnemonic);
+      await _prefs.setStringList("passkey", mnemonic);
+      await _prefs.setString("privateKey", keyPair['private_key']!);
+      await _prefs.setString("publicKey", keyPair['public_key']!);
+      
+      emit(CreateWalletState.phraseKeyCreated);
+    } catch (e) {
+      print("Error validating passkey: $e");
+      emit(CreateWalletState.failure);
+    }
+  }
+
+
+  Future<void> verifyRecoveryPhrase(List<String> enteredPhrase) async {
+    emit(CreateWalletState.loading);
+    try {
+      final storedPhrase = _prefs.getStringList("passkey");
+      if (storedPhrase != null && listEquals(enteredPhrase, storedPhrase)) {
+        emit(CreateWalletState.success);
+      } else {
+        emit(CreateWalletState.failure);
+      }
+    } catch (e) {
+      print("Error verifying recovery phrase: $e");
       emit(CreateWalletState.failure);
     }
   }
@@ -88,7 +145,6 @@ class CreateWalletCubit extends Cubit<CreateWalletState> {
 
 
 
-
 class PasskeyCubit extends Cubit<List<String>> {
   final SharedPreferences _prefs;
 
@@ -96,13 +152,14 @@ class PasskeyCubit extends Cubit<List<String>> {
 
   Future<void> readPasskey() async {
     try {
-      final passkey = _prefs.getStringList("passkey"); // Retrieve passkey list
+      final passkey = _prefs.getStringList("passkey");
       if (passkey != null) {
         emit(passkey);
       } else {
-        emit([]); // Emit empty list if no passkey found
+        emit([]);
       }
     } catch (e) {
+      print("Error reading passkey: $e");
       emit([]);
     }
   }

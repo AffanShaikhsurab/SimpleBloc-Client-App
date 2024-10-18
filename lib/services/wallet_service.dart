@@ -29,7 +29,7 @@ class WalletService {
         final accountJson = json.decode(account);
     print("accoutns  ${accountJson["public_address"].toString()}");
 
-    privateKey = accountJson['private_address'];
+    privateKey = accountJson['privateKey'];
     publicKey = accountJson['public_address'];
   }
 
