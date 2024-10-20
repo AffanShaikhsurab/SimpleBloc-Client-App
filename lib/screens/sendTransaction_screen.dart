@@ -1,35 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:qr_flutter/qr_flutter.dart';
-import 'package:simplicity_coin/blocs/wallet_bloc.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 import 'package:qr_code_dart_scan/qr_code_dart_scan.dart';
+import 'package:simplicity_coin/blocs/wallet_bloc.dart';
 
 class SendTransactionScreen extends StatefulWidget {
   @override
   _SendTransactionScreenState createState() => _SendTransactionScreenState();
 }
 
-class _SendTransactionScreenState extends State<SendTransactionScreen> with SingleTickerProviderStateMixin {
+class _SendTransactionScreenState extends State<SendTransactionScreen> {
   final _formKey = GlobalKey<FormState>();
   final _recipientController = TextEditingController();
   double _amount = 0.0;
   bool _isLoading = false;
-  late AnimationController _controller;
-  late Animation<double> _scaleAnimation;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(vsync: this, duration: Duration(milliseconds: 300));
-    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.95).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
-    );
-  }
 
   @override
   void dispose() {
-    _controller.dispose();
     _recipientController.dispose();
     super.dispose();
   }
@@ -39,40 +25,41 @@ class _SendTransactionScreenState extends State<SendTransactionScreen> with Sing
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: _buildAppBar(),
-      body: BlocListener<WalletCubit, WalletState>(
+      body: BlocConsumer<WalletCubit, WalletState>(
         listener: (context, state) {
           if (state is WalletError) {
             _showSnackBar(context, state.message, isError: true);
           } else if (state is WalletLoaded) {
-            _showSnackBar(context, 'Transaction sent successfully!');
             Navigator.pop(context);
           }
         },
-        child: SafeArea(
-          child: SingleChildScrollView(
-            physics: BouncingScrollPhysics(),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    _buildAnimatedHeader(),
-                    SizedBox(height: 32),
-                    _buildAmountInput(),
-                    SizedBox(height: 32),
-                    _buildFromAccount(),
-                    SizedBox(height: 24),
-                    _buildToAddress(),
-                    SizedBox(height: 40),
-                    _buildSendButton(),
-                  ],
-                ).animate().fadeIn(duration: 600.ms, delay: 200.ms).slideY(begin: 0.2, end: 0),
+        builder: (context, state) {
+          return SafeArea(
+            child: SingleChildScrollView(
+              physics: BouncingScrollPhysics(),
+              child: Padding(
+                padding: const EdgeInsets.all(24.0),
+                child: Form(
+                  key: _formKey,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      _buildHeader(),
+                      SizedBox(height: 32),
+                      _buildAmountInput(),
+                      SizedBox(height: 32),
+                      _buildFromAccount(state),
+                      SizedBox(height: 24),
+                      _buildToAddress(),
+                      SizedBox(height: 40),
+                      _buildSendButton(),
+                    ],
+                  ),
+                ),
               ),
             ),
-          ),
-        ),
+          );
+        },
       ),
     );
   }
@@ -85,35 +72,19 @@ class _SendTransactionScreenState extends State<SendTransactionScreen> with Sing
         icon: Icon(Icons.arrow_back, color: Colors.orange),
         onPressed: () => Navigator.pop(context),
       ),
-      title: Text('Send Simplicity', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold))
-        .animate()
-        .fadeIn(duration: 500.ms)
-        .slideX(begin: -0.2, end: 0),
-      flexibleSpace: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [Colors.black, Colors.orange.withOpacity(0.1)],
-          ),
-        ),
-      ),
+      title: Text('Send Simplicity', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
     );
   }
 
-  Widget _buildAnimatedHeader() {
+  Widget _buildHeader() {
     return Column(
       children: [
-        Icon(Icons.send_rounded, size: 64, color: Colors.orange)
-          .animate()
-          .scale(duration: 600.ms, curve: Curves.elasticOut)
-          .then()
-          .shake(duration: 500.ms, delay: 200.ms),
+        Icon(Icons.send_rounded, size: 64, color: Colors.orange),
         SizedBox(height: 16),
         Text(
           'Send Simplicity Coins',
           style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold),
-        ).animate().fadeIn(duration: 600.ms).slideY(begin: 0.2, end: 0),
+        ),
       ],
     );
   }
@@ -146,28 +117,21 @@ class _SendTransactionScreenState extends State<SendTransactionScreen> with Sing
             return null;
           },
           onSaved: (value) => _amount = double.parse(value!),
-        ).animate().shakeX(duration: 600.ms, delay: 800.ms),
+        ),
       ],
     );
   }
 
-  Widget _buildFromAccount() {
+  Widget _buildFromAccount(WalletState state) {
+    String balance = 'Loading...';
+    if (state is WalletLoaded) {
+      balance = '${state.balance} SMP';
+    }
     return Container(
       padding: EdgeInsets.all(16),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Colors.grey[900]!, Colors.grey[800]!],
-        ),
+        color: Colors.grey[900],
         borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.orange.withOpacity(0.1),
-            blurRadius: 10,
-            offset: Offset(0, 4),
-          ),
-        ],
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -180,10 +144,10 @@ class _SendTransactionScreenState extends State<SendTransactionScreen> with Sing
               Text('Your Wallet', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
             ],
           ),
-          Text('Balance: 1000 SMP', style: TextStyle(color: Colors.orange, fontWeight: FontWeight.bold)),
+          Text('Balance: $balance', style: TextStyle(color: Colors.orange, fontWeight: FontWeight.bold)),
         ],
       ),
-    ).animate().slideX(begin: -0.2, end: 0, duration: 600.ms, delay: 400.ms).then().shimmer(duration: 1200.ms);
+    );
   }
 
   Widget _buildToAddress() {
@@ -211,30 +175,22 @@ class _SendTransactionScreenState extends State<SendTransactionScreen> with Sing
             // Add more sophisticated address validation here
             return null;
           },
-        ).animate().slideX(begin: 0.2, end: 0, duration: 600.ms, delay: 600.ms),
+        ),
       ],
     );
   }
 
   Widget _buildSendButton() {
-    return AnimatedBuilder(
-      animation: _scaleAnimation,
-      builder: (context, child) {
-        return Transform.scale(
-          scale: _scaleAnimation.value,
-          child: ElevatedButton(
-            child: _isLoading
-                ? CircularProgressIndicator(color: Colors.white)
-                : Text('SEND', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.orange,
-              padding: EdgeInsets.symmetric(vertical: 16),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-            ),
-            onPressed: _isLoading ? null : _sendTransaction,
-          ).animate().shimmer(duration: 1200.ms, delay: 800.ms),
-        );
-      },
+    return ElevatedButton(
+      child: _isLoading
+          ? CircularProgressIndicator(color: Colors.white)
+          : Text('SEND', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+      style: ElevatedButton.styleFrom(
+        backgroundColor: Colors.orange,
+        padding: EdgeInsets.symmetric(vertical: 16),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      ),
+      onPressed: _isLoading ? null : _sendTransaction,
     );
   }
 
@@ -259,7 +215,6 @@ class _SendTransactionScreenState extends State<SendTransactionScreen> with Sing
     if (_formKey.currentState!.validate()) {
       _formKey.currentState!.save();
       setState(() => _isLoading = true);
-      _controller.forward();
 
       try {
         final walletCubit = context.read<WalletCubit>();
@@ -272,7 +227,6 @@ class _SendTransactionScreenState extends State<SendTransactionScreen> with Sing
         _showSnackBar(context, 'Failed to send transaction: ${e.toString()}', isError: true);
       } finally {
         setState(() => _isLoading = false);
-        _controller.reverse();
       }
     }
   }

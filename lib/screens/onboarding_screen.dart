@@ -175,7 +175,7 @@ class MainMenuScreen extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Image.asset('assets/logo.png', height: 100),
+              Image.asset('./assest/logo.png', height: 150),
               SizedBox(height: 32),
               Text(
                 'Welcome to Simple',

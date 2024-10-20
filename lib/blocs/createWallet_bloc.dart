@@ -35,13 +35,15 @@ Future<void> generateAndStorePasskey() async {
     try {
       final account = await WalletClient().createAccount();
       final privateKey = account['privateKey'];
+
       
       // Convert private key to mnemonic
       final mnemonic = await WalletClient().convertToMnemonic(privateKey);
       
       await _prefs.setStringList("passkey", mnemonic);
       await _prefs.setString("privateKey", privateKey);
-      
+      await _prefs.setString("publicKey", account['public_address']);
+
       emit(CreateWalletState.phraseKeyCreated);
     } catch (e) {
       print("Error generating passkey: $e");

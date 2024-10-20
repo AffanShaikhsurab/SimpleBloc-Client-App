@@ -30,6 +30,10 @@ class _WalletScreenState extends State<WalletScreen> with SingleTickerProviderSt
     _controller.forward();
 
     // Load wallet when the screen initializes
+    _refreshWallet();
+  }
+
+  void _refreshWallet() {
     context.read<WalletCubit>().getBalance();
   }
 
@@ -56,52 +60,61 @@ class _WalletScreenState extends State<WalletScreen> with SingleTickerProviderSt
         ),
         actions: [
           IconButton(
+            icon: Icon(Icons.refresh, color: Colors.white),
+            onPressed: _refreshWallet,
+          ),
+          IconButton(
             icon: Icon(Icons.qr_code_scanner, color: Colors.white),
             onPressed: () {},
           ),
         ],
       ),
       drawer: _buildDrawer(),
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              Colors.black,
-              Colors.black.withOpacity(0.95),
-            ],
+      body: RefreshIndicator(
+        onRefresh: () async {
+          _refreshWallet();
+        },
+        child: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                Colors.black,
+                Colors.black.withOpacity(0.95),
+              ],
+            ),
           ),
-        ),
-        child: SafeArea(
-          child: FadeTransition(
-            opacity: _animation,
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: BlocBuilder<WalletCubit, WalletState>(
-                builder: (context, state) {
-                  if (state is WalletInitial) {
-                    return Center(child: Text('Initializing wallet...', style: TextStyle(color: Colors.white)));
-                  } else if (state is WalletLoading) {
-                    return Center(child: CircularProgressIndicator());
-                  } else if (state is WalletLoaded) {
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        SizedBox(height: 20),
-                        _buildAccountCard(state.balance),
-                        SizedBox(height: 20),
-                        _buildActionButtons(),
-                        SizedBox(height: 20),
-                        Expanded(child: _buildTransactionsList(state.transactions)),
-                      ],
-                    );
-                  } else if (state is WalletError) {
-                    return Center(child: Text('Error: ${state.message}', style: TextStyle(color: Colors.red)));
-                  } else {
-                    return Center(child: Text('Unexpected state', style: TextStyle(color: Colors.white)));
-                  }
-                },
+          child: SafeArea(
+            child: FadeTransition(
+              opacity: _animation,
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: BlocBuilder<WalletCubit, WalletState>(
+                  builder: (context, state) {
+                    if (state is WalletInitial) {
+                      return Center(child: Text('Initializing wallet...', style: TextStyle(color: Colors.white)));
+                    } else if (state is WalletLoading) {
+                      return Center(child: CircularProgressIndicator());
+                    } else if (state is WalletLoaded) {
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          SizedBox(height: 20),
+                          _buildAccountCard(state.balance),
+                          SizedBox(height: 20),
+                          _buildActionButtons(),
+                          SizedBox(height: 20),
+                          Expanded(child: _buildTransactionsList(state.transactions)),
+                        ],
+                      );
+                    } else if (state is WalletError) {
+                      return Center(child: Text('Error: ${state.message}', style: TextStyle(color: Colors.red)));
+                    } else {
+                      return Center(child: Text('Unexpected state', style: TextStyle(color: Colors.white)));
+                    }
+                  },
+                ),
               ),
             ),
           ),
@@ -126,7 +139,7 @@ class _WalletScreenState extends State<WalletScreen> with SingleTickerProviderSt
                   children: [
                     Text('Account 1', style: TextStyle(color: Colors.black, fontSize: 18)),
                     if (state is WalletLoaded)
-                      Text('Balance: \$${state.balance.toStringAsFixed(2)}', 
+                      Text('Balance: ${state.balance.toStringAsFixed(4)} ETH', 
                            style: TextStyle(color: Colors.black54, fontSize: 16))
                     else
                       Text('Balance: Loading...', style: TextStyle(color: Colors.black54, fontSize: 16)),

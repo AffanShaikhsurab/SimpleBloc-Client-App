@@ -117,12 +117,8 @@ class ReceiveScreen extends StatelessWidget {
 
   Future<String> _getPublicAddress(BuildContext context) async {
     final prefs = await SharedPreferences.getInstance();
-    final accountJson = prefs.getString("account");
-    if (accountJson != null) {
-      final account = jsonDecode(accountJson);
-      return account['public_address'] ?? '';
-    }
-    return '';
+    final accountJson = prefs.getString("publicKey");
+    return accountJson ?? '';
   }
 
   void _copyToClipboard(BuildContext context, String text) {

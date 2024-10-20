@@ -25,6 +25,8 @@ class _LoadWalletScreenState extends State<LoadWalletScreen> {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(content: Text('Wallet loaded successfully!')),
             );
+            context.read<CreateWalletCubit>().createAccount();
+
             Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => WalletScreen()));
           } else if (state == CreateWalletState.failure) {
             ScaffoldMessenger.of(context).showSnackBar(
