@@ -1,12 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:simplicity_coin/blocs/createWallet_bloc.dart';
-import 'package:simplicity_coin/blocs/wallet_bloc.dart';
-import 'package:simplicity_coin/services/wallet_service.dart';
-
-import 'screens/onboarding_screen.dart';
+import 'package:simplicity_coin/screens/home_screen.dart';
+import 'package:simplicity_coin/screens/onboarding_screen.dart';
+import 'blocs/createWallet_bloc.dart';
+import 'blocs/wallet_bloc.dart';
+import 'services/wallet_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -17,24 +16,33 @@ void main() async {
     "https://simplicity-server1.onrender.com",
     "https://simplicity-server.onrender.com",
   ]);
-  runApp(
-    MultiBlocProvider(providers: [
-          BlocProvider(
-      create: (_) => CreateWalletCubit(prefs), // Pass SharedPreferences instance
-    ),
-    BlocProvider(
-      create: (_) => PasskeyCubit(prefs), // Pass SharedPreferences instance
-    ),
-        BlocProvider(
-      create: (_) => WalletCubit(prefs , WalletService()), // Pass SharedPreferences instance
-    ),
-    ], child: MyApp())
 
+  // Check if the user is logged in
+  bool isLoggedIn = prefs.getBool("isLoggedIn") ?? false;
+
+  runApp(
+    MultiBlocProvider(
+      providers: [
+        BlocProvider(
+          create: (_) => CreateWalletCubit(prefs),
+        ),
+        BlocProvider(
+          create: (_) => PasskeyCubit(prefs),
+        ),
+        BlocProvider(
+          create: (_) => WalletCubit(prefs, WalletService()),
+        ),
+      ],
+      child: MyApp(isLoggedIn: isLoggedIn),
+    ),
   );
 }
 
-
 class MyApp extends StatelessWidget {
+  final bool isLoggedIn;
+
+  MyApp({required this.isLoggedIn});
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -56,15 +64,10 @@ class MyApp extends StatelessWidget {
           ),
         ),
       ),
-      home:  OnboardingScreen(),
+      home: isLoggedIn ? HomeScreen() : OnboardingScreen(),
     );
   }
 }
-
-
-
-
-
 // ... (previous code remains the same)
 
 class TransactionDetailsScreen extends StatelessWidget {
