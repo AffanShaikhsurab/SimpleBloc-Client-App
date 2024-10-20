@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:simplicity_coin/screens/home_screen.dart';
 import 'package:simplicity_coin/screens/onboarding_screen.dart';
+import 'package:simplicity_coin/screens/password_screen.dart';
 import 'blocs/createWallet_bloc.dart';
 import 'blocs/wallet_bloc.dart';
 import 'services/wallet_service.dart';
@@ -18,8 +19,11 @@ void main() async {
   ]);
 
   // Check if the user is logged in
-  bool isLoggedIn = prefs.getBool("isLoggedIn") ?? false;
-
+  bool isLoggedIn = prefs.getBool("accountCreated") ?? false;
+  print(
+    "the logged in status is " +
+        isLoggedIn.toString() 
+  );
   runApp(
     MultiBlocProvider(
       providers: [
@@ -64,7 +68,7 @@ class MyApp extends StatelessWidget {
           ),
         ),
       ),
-      home: isLoggedIn ? HomeScreen() : OnboardingScreen(),
+      home: isLoggedIn ? PasswordEntryScreen() : OnboardingScreen(),
     );
   }
 }
