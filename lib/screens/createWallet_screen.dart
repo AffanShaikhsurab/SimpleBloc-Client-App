@@ -102,7 +102,7 @@ class _CreateWalletScreenState extends State<CreateWalletScreen> {
           ),
           SizedBox(height: 8),
           Text(
-            'This unlocks your MetaMask wallet only on this device',
+            'This unlocks your Simple wallet only on this device',
             style: TextStyle(color: Colors.grey),
           ),
           SizedBox(height: 32),
@@ -135,7 +135,7 @@ class _CreateWalletScreenState extends State<CreateWalletScreen> {
               ),
               Expanded(
                 child: Text(
-                  'I understand that MetaMask cannot recover this password for me.',
+                  'I understand that Simple cannot recover this password for me.',
                   style: TextStyle(color: Colors.grey),
                 ),
               ),
@@ -285,7 +285,7 @@ Widget _buildCongratulationsPage()  {
             ),
             SizedBox(height: 8),
             Text(
-              'You have successfully created your MetaMask wallet.',
+              'You have successfully created your Simple wallet.',
               style: TextStyle(color: Colors.grey),
               textAlign: TextAlign.center,
             ),

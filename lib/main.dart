@@ -50,7 +50,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'MetaMask Inspired App',
+      title: 'Simple Inspired App',
       theme: ThemeData(
         brightness: Brightness.dark,
         primaryColor: Colors.orange,

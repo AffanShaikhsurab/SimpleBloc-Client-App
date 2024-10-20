@@ -165,7 +165,7 @@ class MainMenuScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('MetaMask', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: Text('Simple', style: TextStyle(fontWeight: FontWeight.bold)),
         backgroundColor: Colors.black,
         elevation: 0,
       ),
@@ -175,10 +175,10 @@ class MainMenuScreen extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Image.asset('assets/fox_logo.png', height: 100),
+              Image.asset('assets/logo.png', height: 100),
               SizedBox(height: 32),
               Text(
-                'Welcome to MetaMask',
+                'Welcome to Simple',
                 style: Theme.of(context).textTheme.headlineMedium,
                 textAlign: TextAlign.center,
               ),
