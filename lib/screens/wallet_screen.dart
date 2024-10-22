@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:simplicity_coin/blocs/wallet_bloc.dart';
 import 'package:simplicity_coin/data/Transaction.dart';
+import 'package:simplicity_coin/screens/onboarding_screen.dart';
 import 'package:simplicity_coin/screens/recieve_screen.dart';
 import 'package:simplicity_coin/screens/sendTransaction_screen.dart';
 
@@ -66,6 +68,15 @@ class _WalletScreenState extends State<WalletScreen> with SingleTickerProviderSt
           IconButton(
             icon: Icon(Icons.qr_code_scanner, color: Colors.white),
             onPressed: () {},
+          ),
+           IconButton(
+            icon: Icon(Icons.power_off, color: Colors.white),
+            onPressed: () async {
+              // Add your logout logic here
+              SharedPreferences prefs = await SharedPreferences.getInstance();
+              prefs.clear();
+              Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => OnboardingScreen()));
+            },
           ),
         ],
       ),
