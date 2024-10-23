@@ -12,7 +12,7 @@ dependencies:
   flutter:
     sdk: flutter
   flutter_bloc: ^8.0.0
-  http: ^0.13.3
+  http: ^1.2.2
   crypto: ^3.0.1
   pointycastle: ^3.3.0
   flutter_svg: ^2.0.9
@@ -24,11 +24,14 @@ dependencies:
   mobile_scanner: ^6.0.1
   qr_code_dart_scan: ^0.9.1
   flutter_launcher_icons: ^0.14.1
+  google_fonts: ^6.2.1
+  path_provider: ^2.1.4
+  bip39: ^1.0.6
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  flutter_lints: ^1.0.0
+  flutter_lints: ^5.0.0
 
 flutter_icons:
   android: true

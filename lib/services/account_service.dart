@@ -53,8 +53,18 @@ Future<List<String>> convertToMnemonic(String privateKey) async {
   ///
   /// Throws an [Exception] if the API request fails.
  
+  /// Converts a mnemonic to a key pair using an external API.
+  ///
+  /// [mnemonic] is the mnemonic phrase represented as a list of strings.
+  ///
+  /// Returns a [Map] containing the 'private_key' and 'public_key' as strings.
+  ///
+  /// Throws an [Exception] if the API request fails or if the server returns a non-200 status code.
+
   Future<Map<String, String>> convertToPrivateKey(List<String> mnemonic) async {
     try {
+      print("the mnemonic is $mnemonic");
+    
       final response = await http.post(
         Uri.parse('$phraseKeyUrl/mnemonic_to_private_key'),
         headers: {'Content-Type': 'application/json'},

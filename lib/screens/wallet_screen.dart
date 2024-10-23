@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:simplicity_coin/blocs/wallet_bloc.dart';
 import 'package:simplicity_coin/data/Transaction.dart';
+import 'package:simplicity_coin/screens/mining_scrren.dart';
+import 'package:simplicity_coin/screens/onboarding_screen.dart';
+
 import 'package:simplicity_coin/screens/recieve_screen.dart';
 import 'package:simplicity_coin/screens/sendTransaction_screen.dart';
 
@@ -11,307 +15,339 @@ class WalletScreen extends StatefulWidget {
   _WalletScreenState createState() => _WalletScreenState();
 }
 
-class _WalletScreenState extends State<WalletScreen> with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<double> _animation;
+class _WalletScreenState extends State<WalletScreen> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(
-      duration: const Duration(milliseconds: 500),
-      vsync: this,
-    );
-    _animation = CurvedAnimation(
-      parent: _controller,
-      curve: Curves.easeInOut,
-    );
-    _controller.forward();
-
-    // Load wallet when the screen initializes
     _refreshWallet();
   }
 
   void _refreshWallet() {
     context.read<WalletCubit>().getBalance();
   }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
+ void _logout() async {
+    // Add your logout logic here
+    var pref = await SharedPreferences.getInstance();
+    pref.clear();
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (context) => OnboardingScreen()),
+    );
   }
-
+  
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       key: _scaffoldKey,
-      backgroundColor: Colors.black,
-      appBar: AppBar(
-        backgroundColor: Colors.black,
-        elevation: 0,
-        title: Text('Smart Chain', style: TextStyle(color: Colors.white)),
-        leading: IconButton(
-          icon: Icon(Icons.menu, color: Colors.white),
-          onPressed: () {
-            _scaffoldKey.currentState?.openDrawer();
-          },
+      backgroundColor: const Color(0xFF1E1E1E),
+      body: Row(
+        children: [
+          _buildSidebar(),
+          Expanded(
+            child: _buildMainContent(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSidebar() {
+    return Container(
+      width: 200,
+      color: const Color(0xFF2D2D2D),
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Text(
+              'Smart Chain',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+          _buildSidebarButton(
+            icon: Icons.account_balance_wallet,
+            label: 'Wallet',
+            isSelected: true,
+          ),
+          _buildSidebarButton(
+            icon: Icons.electrical_services,
+            label: 'Mining',
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => MiningDashboard()),
+            ),
+          ),
+           Spacer(),
+          _buildSidebarButton(
+            icon: Icons.logout,
+            label: 'Logout',
+            onTap: _logout,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSidebarButton({
+    required IconData icon,
+    required String label,
+    bool isSelected = false,
+    VoidCallback? onTap,
+  }) {
+    return Material(
+      color: isSelected ? const Color(0xFF3D3D3D) : Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          child: Row(
+            children: [
+              Icon(icon, color: Colors.white70, size: 20),
+              SizedBox(width: 12),
+              Text(
+                label,
+                style: TextStyle(color: Colors.white70),
+              ),
+            ],
+          ),
         ),
-        actions: [
+      ),
+    );
+  }
+
+  Widget _buildMainContent() {
+    return BlocBuilder<WalletCubit, WalletState>(
+      builder: (context, state) {
+        if (state is WalletLoading) {
+          return Center(child: CircularProgressIndicator());
+        }
+        if (state is WalletLoaded) {
+          return Column(
+            children: [
+              _buildTopBar(),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.all(24.0),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: _buildLeftPanel(state),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          );
+        }
+        return Center(
+          child: Text('Error loading wallet', style: TextStyle(color: Colors.white)),
+        );
+      },
+    );
+  }
+
+  Widget _buildTopBar() {
+    return Container(
+      height: 60,
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      decoration: BoxDecoration(
+        color: const Color(0xFF2D2D2D),
+        border: Border(bottom: BorderSide(color: Colors.grey[850]!)),
+      ),
+      child: Row(
+        children: [
+          Text(
+            'Wallet Overview',
+            style: TextStyle(color: Colors.white, fontSize: 18),
+          ),
+          Spacer(),
           IconButton(
-            icon: Icon(Icons.refresh, color: Colors.white),
+            icon: Icon(Icons.refresh, color: Colors.white70),
             onPressed: _refreshWallet,
           ),
-          IconButton(
-            icon: Icon(Icons.qr_code_scanner, color: Colors.white),
-            onPressed: () {},
-          ),
-        ],
-      ),
-      drawer: _buildDrawer(),
-      body: RefreshIndicator(
-        onRefresh: () async {
-          _refreshWallet();
-        },
-        child: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                Colors.black,
-                Colors.black.withOpacity(0.95),
-              ],
-            ),
-          ),
-          child: SafeArea(
-            child: FadeTransition(
-              opacity: _animation,
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: BlocBuilder<WalletCubit, WalletState>(
-                  builder: (context, state) {
-                    if (state is WalletInitial) {
-                      return Center(child: Text('Initializing wallet...', style: TextStyle(color: Colors.white)));
-                    } else if (state is WalletLoading) {
-                      return Center(child: CircularProgressIndicator());
-                    } else if (state is WalletLoaded) {
-                      return Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          SizedBox(height: 20),
-                          _buildAccountCard(state.balance),
-                          SizedBox(height: 20),
-                          _buildActionButtons(),
-                          SizedBox(height: 20),
-                          Expanded(child: _buildTransactionsList(state.transactions)),
-                        ],
-                      );
-                    } else if (state is WalletError) {
-                      return Center(child: Text('Error: ${state.message}', style: TextStyle(color: Colors.red)));
-                    } else {
-                      return Center(child: Text('Unexpected state', style: TextStyle(color: Colors.white)));
-                    }
-                  },
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildDrawer() {
-    return Drawer(
-      child: ListView(
-        padding: EdgeInsets.zero,
-        children: [
-          BlocBuilder<WalletCubit, WalletState>(
-            builder: (context, state) {
-              return DrawerHeader(
-                decoration: BoxDecoration(
-                  color: Colors.orange,
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Account 1', style: TextStyle(color: Colors.black, fontSize: 18)),
-                    if (state is WalletLoaded)
-                      Text('Balance: ${state.balance.toStringAsFixed(4)} ETH', 
-                           style: TextStyle(color: Colors.black54, fontSize: 16))
-                    else
-                      Text('Balance: Loading...', style: TextStyle(color: Colors.black54, fontSize: 16)),
-                  ],
-                ),
-              );
-            },
-          ),
-          ListTile(
-            leading: Icon(Icons.history, color: Colors.orange),
-            title: Text('Activity'),
-            onTap: () {
-              Navigator.pop(context);
-              // Refresh transactions
-              context.read<WalletCubit>().getTransactions();
-            },
-          ),
-          // ... (other drawer items remain the same)
         ],
       ),
     );
   }
 
-  Widget _buildAccountCard(double balance) {
-    return Hero(
-      tag: 'accountCard',
-      child: Material(
-        color: Colors.transparent,
-        child: Container(
-          height: 200,
-          decoration: BoxDecoration(
-            color: Colors.orange,
-            borderRadius: BorderRadius.circular(20),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.orange.withOpacity(0.3),
-                blurRadius: 10,
-                offset: Offset(0, 5),
-              ),
-            ],
-          ),
-          child: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text('Account 1', style: TextStyle(color: Colors.black, fontSize: 18)),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('${balance.toStringAsFixed(4)} ETH', 
-                         style: TextStyle(color: Colors.black, fontSize: 32, fontWeight: FontWeight.bold)),
-                    Text('\$${(balance * 1963.44).toStringAsFixed(2)}', 
-                         style: TextStyle(color: Colors.black54, fontSize: 16)),
-                  ],
-                ),
-                Row(
-                  children: [
-                    Container(
-                      padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: Colors.black,
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Text('Network: Smart Chain', style: TextStyle(color: Colors.white)),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildActionButtons() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-      children: [
-        GestureDetector(
-          child: _buildActionButton(Icons.arrow_downward, 'Receive'),
-          onTap: () {
-            Navigator.push(context, MaterialPageRoute(builder: (context) => ReceiveScreen()));
-          },
-        ),
-        GestureDetector(
-          child: _buildActionButton(Icons.arrow_upward, 'Send'),
-          onTap: () {
-            Navigator.push(context, MaterialPageRoute(builder: (context) => SendTransactionScreen()));
-          },
-        ),
-      ],
-    );
-  }
-
-  Widget _buildActionButton(IconData icon, String label) {
+  Widget _buildLeftPanel(WalletLoaded state) {
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Container(
-          padding: EdgeInsets.all(12),
+        _buildBalanceCard(state.balance),
+        SizedBox(height: 24),
+        _buildQuickActions(),
+        SizedBox(height: 24),
+        Expanded(child: _buildTransactionsList(state.transactions)),
+      ],
+    );
+  }
+
+  Widget _buildBalanceCard(double balance) {
+    return Container(
+      padding: EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: const Color(0xFF3D3D3D),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Total Balance', style: TextStyle(color: Colors.white70)),
+          SizedBox(height: 8),
+          Text(
+            '${balance.toStringAsFixed(4)} ETH',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 32,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildQuickActions() {
+    return Row(
+      children: [
+        _buildActionButton(
+          icon: Icons.arrow_downward,
+          label: 'Receive',
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => ReceiveScreen()),
+          ),
+        ),
+        SizedBox(width: 16),
+        _buildActionButton(
+          icon: Icons.arrow_upward,
+          label: 'Send',
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => SendTransactionScreen()),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildActionButton({
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+  }) {
+    return Expanded(
+      child: InkWell(
+        onTap: onTap,
+        child: Container(
+          padding: EdgeInsets.symmetric(vertical: 16),
           decoration: BoxDecoration(
-            color: Colors.grey[800],
-            shape: BoxShape.circle,
-            boxShadow: [
-              BoxShadow(
-                color: Colors.grey[900]!,
-                blurRadius: 5,
-                offset: Offset(0, 2),
-              ),
+            color: const Color(0xFF3D3D3D),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Column(
+            children: [
+              Icon(icon, color: Colors.white70),
+              SizedBox(height: 8),
+              Text(label, style: TextStyle(color: Colors.white70)),
             ],
           ),
-          child: Icon(icon, color: Colors.white),
         ),
-        SizedBox(height: 8),
-        Text(label, style: TextStyle(color: Colors.white)),
-      ],
+      ),
     );
   }
 
   Widget _buildTransactionsList(List<Transaction> transactions) {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('RECENT TRANSACTIONS', style: TextStyle(color: Colors.white, fontSize: 16)),
+        Text(
+          'Recent Transactions',
+          style: TextStyle(color: Colors.white, fontSize: 18),
+        ),
         SizedBox(height: 16),
         Expanded(
-          child: transactions.isEmpty
-              ? Center(child: Text('No transactions yet', style: TextStyle(color: Colors.white)))
-              : ListView.builder(
-                  itemCount: transactions.length,
-                  itemBuilder: (context, index) {
-                    final transaction = transactions[index];
-                    return _buildTransactionItem(
-                      icon: transaction.isOutgoing ? Icons.arrow_upward : Icons.arrow_downward,
-                      title: transaction.isOutgoing ? 'Sent ETH' : 'Received ETH',
-                      amount: '${transaction.amount} ETH',
-                      date: transaction.timestamp,
-                    );
-                  },
-                ),
+          child: Container(
+            decoration: BoxDecoration(
+              color: const Color(0xFF3D3D3D),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: transactions.isEmpty
+                ? Center(
+                    child: Text(
+                      'No transactions yet',
+                      style: TextStyle(color: Colors.white70),
+                    ),
+                  )
+                : ListView.builder(
+                    padding: EdgeInsets.all(16),
+                    itemCount: transactions.length,
+                    itemBuilder: (context, index) {
+                      final transaction = transactions[index];
+                      return _buildTransactionItem(transaction);
+                    },
+                  ),
+          ),
         ),
       ],
     );
   }
 
-  Widget _buildTransactionItem({required IconData icon, required String title, required String amount, required DateTime date}) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 16.0),
+  Widget _buildTransactionItem(Transaction transaction) {
+    return Container(
+      padding: EdgeInsets.symmetric(vertical: 12),
+      decoration: BoxDecoration(
+        border: Border(
+          bottom: BorderSide(color: Colors.grey[850]!, width: 0.5),
+        ),
+      ),
       child: Row(
         children: [
           Container(
             padding: EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: icon == Icons.arrow_upward ? Colors.red.withOpacity(0.2) : Colors.green.withOpacity(0.2),
-              shape: BoxShape.circle,
+              color: transaction.isOutgoing
+                  ? Colors.red.withOpacity(0.2)
+                  : Colors.green.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(8),
             ),
-            child: Icon(icon, color: Colors.white),
+            child: Icon(
+              transaction.isOutgoing
+                  ? Icons.arrow_upward
+                  : Icons.arrow_downward,
+              color: Colors.white70,
+              size: 16,
+            ),
           ),
           SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title, style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                SizedBox(height: 4),
-                Text(DateFormat('dd MMM yyyy, hh:mm a').format(date), style: TextStyle(color: Colors.white54)),
+                Text(
+                  transaction.isOutgoing ? 'Sent' : 'Received',
+                  style: TextStyle(color: Colors.white),
+                ),
+                Text(
+                  DateFormat('MMM dd, yyyy HH:mm').format(transaction.timestamp),
+                  style: TextStyle(color: Colors.white70, fontSize: 12),
+                ),
               ],
             ),
           ),
-          Text(amount, style: TextStyle(color: Colors.white)),
+          Text(
+            '${transaction.amount} ETH',
+            style: TextStyle(color: Colors.white),
+          ),
         ],
       ),
     );

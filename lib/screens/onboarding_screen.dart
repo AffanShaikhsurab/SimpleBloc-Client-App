@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:simplicity_coin/blocs/createWallet_bloc.dart';
 import 'package:simplicity_coin/blocs/wallet_bloc.dart';
 import 'package:simplicity_coin/screens/createWallet_screen.dart';
 import 'package:simplicity_coin/screens/home_screen.dart';
@@ -48,6 +49,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     final String? storedPassword = prefs.getString('password');
 
     if (storedPassword != null) {
+      // final account = prefs.getString('account');
+      // context.read<CreateWalletCubit>()
       // Password exists, navigate to PasswordEntryScreen
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(builder: (context) => PasswordEntryScreen()),
@@ -62,6 +65,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     bool? isCreated = prefs.getBool("accountCreated");
 
     if (isCreated == true) {
+      
       // Account is already created, skip to the main menu
         _checkAccountCreationStatus();
     

@@ -22,15 +22,14 @@ class WalletService {
 
   void _updateKeys() async {
     SharedPreferences _prefs = await SharedPreferences.getInstance();
-    final account = _prefs.getString("account");
-    if (account == null) {
-      throw Exception('No account found in SharedPreferences');
+    privateKey = _prefs.getString("privateKey")!;    
+    if (privateKey == "") {
+      throw Exception('No privateKey found in SharedPreferences');
     }
-        final accountJson = json.decode(account);
-    print("accoutns  ${accountJson["public_address"].toString()}");
-
-    privateKey = accountJson['privateKey'];
-    publicKey = accountJson['public_address'];
+    publicKey = _prefs.getString("publicKey")!;
+    print(
+      "The private key is $privateKey and the public key is $publicKey",
+    );
   }
 
   void _startNodeUpdateTimer() {
@@ -89,6 +88,7 @@ class WalletService {
     return DateTime.now().millisecondsSinceEpoch.toString() + Random().nextInt(1000).toString();
   }
  Future<Map<String, dynamic>> signTransaction(String privateKey, String recipient, double amount) async {
+    _updateKeys();
     final response = await http.post(
       Uri.parse('$baseUrl/sign_transaction'),
       headers: {'Content-Type': 'application/json'},
@@ -96,8 +96,13 @@ class WalletService {
         'private_key': privateKey,
         'recipient': recipient,
         'amount': amount,
-      }),
+      })
     );
+    print("data is ${json.encode({
+        'private_key': privateKey,
+        'recipient': recipient,
+        'amount': amount,
+      })}");
 
     if (response.statusCode == 200) {
       return json.decode(response.body);
@@ -126,25 +131,30 @@ Future<String> sendTransaction(String recipient, double amount) async {
 
     for (var node in nodes_list) {
       try {
+
         print("Sending transaction to $node");
         final response = await http.post(
           Uri.parse('$node/transactions/new'),
           body: json.encode(transactionData),
           headers: {'Content-Type': 'application/json'},
-        ).timeout(Duration(seconds: 10)); // Add a timeout to prevent long waits
+        );
 
-        print("Response from $node: ${response.body}");
+        print("Response from $node: ${response.statusCode}");
+        print("the data is ${json.encode(transactionData)}");
         
-        if (response.statusCode == 200) {
+        if (response.statusCode == 201) {
+          // Return immediately on success, which will exit the function
           return 'Transaction sent successfully to $node!';
         }
+        // If status code wasn't 201, continue to next node
       } catch (e) {
         print('Error sending transaction to $node: $e');
-        // Continue to the next node if there's an error
+        // Continue to next node if there's an error
+        continue;
       }
     }
 
-    // If we've tried all nodes and none succeeded
+    // Only reached if no node succeeded
     return 'Failed to send transaction to any available node. Please try again later.';
   } catch (e) {
     print('Error in sendTransaction: $e');
@@ -162,15 +172,16 @@ Future<String> sendTransaction(String recipient, double amount) async {
 
     final number = Random().nextInt(max(1, nodes_list.length));
     final node = nodes_list[number];
-
     for (var node in nodes_list) {
       try {
         final response = await http.get(Uri.parse('$node/chain'));
         if (response.statusCode == 200) {
           final chain = json.decode(response.body)['chain'];
           List<Transaction> userTransactions = [];
+          print("the legnth of chain is ${chain.length}");
           for (var block in chain) {
             for (var tx in block['transactions']) {
+              
               if (tx['transaction']['sender'] == publicKey ||
                   tx['transaction']['recipient'] == publicKey) {
                 bool isOutgoing = tx['transaction']['sender'] == publicKey;
@@ -188,6 +199,7 @@ Future<String> sendTransaction(String recipient, double amount) async {
               }
             }
           }
+        
           return userTransactions;
         }
       } catch (e) {
