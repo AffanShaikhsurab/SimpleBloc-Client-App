@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'dart:convert';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -6,19 +5,11 @@ import 'package:simplicity_coin/data/Transaction.dart';
 import '../services/wallet_service.dart';
 
 // More detailed state class to represent the state of WalletCubit
-// First, let's update the WalletState to include transaction status
 abstract class WalletState {}
 
 class WalletInitial extends WalletState {}
 
 class WalletLoading extends WalletState {}
-
-class WalletTransactionInProgress extends WalletState {
-  final double currentBalance;
-  final List<Transaction> transactions;
-  
-  WalletTransactionInProgress(this.currentBalance, this.transactions);
-}
 
 class WalletLoaded extends WalletState {
   final double balance;
@@ -29,76 +20,56 @@ class WalletLoaded extends WalletState {
 
 class WalletError extends WalletState {
   final String message;
-  final WalletState? previousState;
 
-  WalletError(this.message, {this.previousState});
+  WalletError(this.message);
 }
-// Update the WalletCubit with improved state management
+
 class WalletCubit extends Cubit<WalletState> {
   final SharedPreferences _prefs;
   final WalletService _walletService;
-  Timer? _refreshTimer;
 
-  WalletCubit(this._prefs, this._walletService) : super(WalletInitial()) {
-    _initializeWallet();
-  }
+  WalletCubit(this._prefs, this._walletService) : super(WalletInitial());
 
-  Future<void> _initializeWallet() async {
-    await getBalance();
-    // Set up periodic refresh every 30 seconds
-    _refreshTimer = Timer.periodic(Duration(seconds: 30), (_) => _refreshWallet());
-  }
-
-  Future<String> sendTransaction(String recipient, double amount) async {
-    if (state is WalletTransactionInProgress) {
-      return 'A transaction is already in progress';
-    }
-
+ Future<String> sendTransaction(String recipient, double amount) async {
+    emit(WalletLoading());
     try {
-      // Get current state data
-      final currentState = state;
-      double currentBalance = 0.0;
-      List<Transaction> currentTransactions = [];
-      
-      if (currentState is WalletLoaded) {
-        currentBalance = currentState.balance;
-        currentTransactions = currentState.transactions;
-      }
-
-      // Emit transaction in progress state
-      emit(WalletTransactionInProgress(currentBalance, currentTransactions));
-
-      // Send transaction
-      final result = await _walletService.sendTransaction(recipient, amount);
-      
-      // Wait a moment for the transaction to propagate
-      await Future.delayed(Duration(seconds: 2));
-      
-      // Refresh wallet data
-      await getBalance();
-      
+      String result = await _walletService.sendTransaction(recipient, amount);
+      await _loadWallet(); // Reload wallet data after transaction
       return result;
     } catch (e) {
       print("Error sending transaction: $e");
-      emit(WalletError("Failed to send transaction: ${e.toString()}", 
-          previousState: state));
+      emit(WalletError("Failed to send transaction: ${e.toString()}"));
       return "Failed to send transaction: ${e.toString()}";
     }
   }
 
-  Future<void> _refreshWallet() async {
-    // Don't refresh if a transaction is in progress
-    if (state is WalletTransactionInProgress) return;
-    await getBalance();
+  Future<void> getBalance() async {
+    emit(WalletLoading());
+    try {
+      double balance = await _walletService.getBalance();
+      List<Transaction> transactions = await _walletService.getTransactions();
+      emit(WalletLoaded(balance, transactions));
+    } catch (e) {
+      print("Error getting balance: $e");
+      emit(WalletError("Failed to get balance: ${e.toString()}"));
+    }
   }
 
-  Future<void> getBalance() async {
+  Future<void> getTransactions() async {
+    emit(WalletLoading());
     try {
-      // Don't show loading state if we're already in transaction progress
-      if (!(state is WalletTransactionInProgress)) {
-        emit(WalletLoading());
-      }
-      
+      double balance = await _walletService.getBalance();
+      List<Transaction> transactions = await _walletService.getTransactions();
+      emit(WalletLoaded(balance, transactions));
+    } catch (e) {
+      print("Error getting transactions: $e");
+      emit(WalletError("Failed to get transactions: ${e.toString()}"));
+    }
+  }
+
+  Future<void> _loadWallet() async {
+    emit(WalletLoading());
+    try {
       double balance = await _walletService.getBalance();
       List<Transaction> transactions = await _walletService.getTransactions();
       emit(WalletLoaded(balance, transactions));
@@ -108,9 +79,14 @@ class WalletCubit extends Cubit<WalletState> {
     }
   }
 
-  @override
-  Future<void> close() {
-    _refreshTimer?.cancel();
-    return super.close();
-  }
+  // Uncomment and implement this method if you need to store wallet data
+  // Future<void> _storeWallet(Wallet wallet) async {
+  //   try {
+  //     final walletJson = jsonEncode(wallet.toJson());
+  //     await _prefs.setString("wallet", walletJson);
+  //   } catch (e) {
+  //     print("Error storing wallet: $e");
+  //     emit(WalletError("Failed to store wallet: ${e.toString()}"));
+  //   }
+  // }
 }
