@@ -70,11 +70,14 @@ class _WalletScreenState extends State<WalletScreen> with SingleTickerProviderSt
             onPressed: () {},
           ),
            IconButton(
-            icon: Icon(Icons.power_off, color: Colors.white),
+            icon: Icon(Icons.logout, color: Colors.white),
             onPressed: () async {
               // Add your logout logic here
               SharedPreferences prefs = await SharedPreferences.getInstance();
+              var password = prefs.getString('password');
               prefs.clear();
+              prefs.setString('password', password!);
+
               Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => OnboardingScreen()));
             },
           ),
