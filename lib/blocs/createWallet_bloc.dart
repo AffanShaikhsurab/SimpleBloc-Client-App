@@ -169,6 +169,8 @@ Future<void> _storeKeysLocally(String publicKey, String privateKey) async {
       final account = await WalletClient().createAccount();
       await _prefs.setString("privateKey", account['private_key']);
       await _prefs.setString("publicKey", account['public_address']);
+      await _prefs.setString("privateKey", account['private_key']);
+      await _prefs.setString("publicKey", account['public_address']);
       emit(CreateWalletState.keysCreated);
     } catch (e) {
       print("Error creating keys: $e");
@@ -179,6 +181,7 @@ Future<void> _storeKeysLocally(String publicKey, String privateKey) async {
   Future<void> readAccount() async {
   try {
 
+    final accountJson = _prefs.getString("publicKey"); // Retrieve JSON string from SharedPreferences
     final accountJson = _prefs.getString("publicKey"); // Retrieve JSON string from SharedPreferences
     if (accountJson != null) {
       final account = jsonDecode(accountJson); // Convert JSON string back to a Dart object
