@@ -4,128 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:simplicity_coin/blocs/process_bloc.dart';
+import 'package:simplicity_coin/blocs/wallet_bloc.dart';
 
-// Helper class to manage processes
-class ProcessManager {
-  Process? process;
-  final String name;
-  final void Function(String) onOutput;
-  final void Function(String) onError;
-  final void Function()? onExit;
-
-  ProcessManager({
-    required this.name,
-    required this.onOutput,
-    required this.onError,
-    this.onExit,
-  });
-
-  Future<void> start({
-    required String executable,
-    required List<String> arguments,
-  }) async {
-    try {
-      // Start process without detached mode for better control
-      process = await Process.start(
-        executable,
-        arguments,
-        mode: ProcessStartMode.normal,  // Changed from detachedWithStdio
-        runInShell: true,
-      );
-
-      // Handle standard output
-      process!.stdout.transform(utf8.decoder).listen(
-        onOutput,
-        onDone: () {
-          onExit?.call();
-          process = null;
-        },
-        onError: (error) {
-          onError('Process error: $error');
-          process = null;
-        },
-      );
-
-      // Handle standard error
-      process!.stderr.transform(utf8.decoder).listen(
-        onError,
-        onError: (error) {
-          onError('Process error: $error');
-        },
-      );
-    } catch (e) {
-      onError('Failed to start process: $e');
-      rethrow;
-    }
-  }
-
-  Future<void> stop() async {
-    if (process != null) {
-      try {
-        // Try graceful shutdown first
-        process!.kill(ProcessSignal.sigterm);
-        
-        // Wait for process to exit with timeout
-        await process!.exitCode.timeout(
-          Duration(seconds: 5),
-          onTimeout: () {
-            // Force kill if graceful shutdown fails
-            process!.kill(ProcessSignal.sigkill);
-            return -1;
-          },
-        );
-      } catch (e) {
-        onError('Error stopping process: $e');
-      } finally {
-        process = null;
-      }
-    }
-  }
-
-  bool get isRunning => process != null;
-}
-
-// Modified server process functions
-Future<ProcessManager> createServerProcess(
-  String url,
-  void Function(String) onOutput,
-  void Function(String) onError,
-  void Function()? onExit,
-) async {
-  final manager = ProcessManager(
-    name: 'Server',
-    onOutput: onOutput,
-    onError: onError,
-    onExit: onExit,
-  );
-  
-  await manager.start(
-    executable: 'python',
-    arguments: ['./server/app.py', '--url', url],
-  );
-  
-  return manager;
-}
-
-Future<ProcessManager> createTunnelProcess(
-  void Function(String) onOutput,
-  void Function(String) onError,
-  void Function()? onExit,
-) async {
-  final manager = ProcessManager(
-    name: 'Cloudflared',
-    onOutput: onOutput,
-    onError: onError,
-    onExit: onExit,
-  );
-  
-  await manager.start(
-    executable: 'cloudflared',
-    arguments: ['tunnel', '--url', 'http://localhost:5000'],
-  );
-  
-  return manager;
-}
 
 Future<Process> startServerProcess(String url) async {
   return await Process.start(
@@ -144,6 +26,7 @@ Future<Process> startTunnelProcess() async {
     runInShell: true,
   );
 }
+
 class MiningDashboard extends StatefulWidget {
   @override
   _MiningDashboardState createState() => _MiningDashboardState();
@@ -175,58 +58,284 @@ ProcessManager? _serverManager;
       _addToTerminal('📋 Cloudflare URL extracted: $_cloudflaredUrl');
     }
   }
+  
+  Color _getOutputColor(String output) {
+    if (output.toLowerCase().contains('error')) {
+      return Colors.red;
+    } else if (output.toLowerCase().contains('success')) {
+      return Colors.green;
+    } else if (output.toLowerCase().contains('warning')) {
+      return Colors.yellow;
+    }
+    return Colors.white70;
+  }
+
+  void _showSnackBar({
+    required String message,
+    required IconData icon,
+    required Color backgroundColor,
+  }) {
+    final snackBar = SnackBar(
+      content: Row(
+        children: [
+          Icon(icon, color: Colors.white),
+          SizedBox(width: 8),
+          Expanded(child: Text(message)),
+        ],
+      ),
+      backgroundColor: backgroundColor,
+      behavior: SnackBarBehavior.floating,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      margin: EdgeInsets.all(10),
+      duration: Duration(seconds: 3),
+      action: SnackBarAction(
+        label: 'Dismiss',
+        textColor: Colors.white,
+        onPressed: () {},
+      ),
+    );
+    ScaffoldMessenger.of(context).showSnackBar(snackBar);
+  }
+
+  Future<void> _handleServerToggle(ProcessState state) async {
+    if (state.isServerRunning) {
+      await context.read<ProcessCubit>().stopServer();
+    } else {
+      final url = _urlController.text.trim();
+      if (url.isEmpty) {
+        _showSnackBar(
+          message: 'Please enter a URL first',
+          icon: Icons.error_outline,
+          backgroundColor: Colors.red,
+        );
+        return;
+      }
+      await context.read<ProcessCubit>().startServer(url);
+    }
+  }
+
+  Future<void> _handleMiningToggle(ProcessState state) async {
+    if (state.isMining) {
+      await context.read<ProcessCubit>().stopMining();
+    } else {
+      if (!state.isCloudflaredInstalled) {
+        _showSnackBar(
+          message: 'Please install Cloudflared first',
+          icon: Icons.error_outline,
+          backgroundColor: Colors.red,
+        );
+        return;
+      }
+      await context.read<ProcessCubit>().startMining();
+    }
+  }
+
+  Future<void> _copyTerminalOutput(List<String> output ) async {
+    final text = output.join('\n');
+ context.read<ProcessCubit>().handleCloudflareUrl(text);
+
+    await Clipboard.setData(ClipboardData(text: text));
+    _showSnackBar(
+      message: 'Terminal output copied to clipboard',
+      icon: Icons.check_circle_outline,
+      backgroundColor: Colors.green,
+    );
+  }
+
+  Future<void> _copyCloudflaredUrl(String? url ) async {
+    if (url == null) {
+      _showSnackBar(
+        message: 'No Cloudflare URL available',
+        icon: Icons.error_outline,
+        backgroundColor: Colors.red,
+      );
+      return;
+    }
+    await Clipboard.setData(ClipboardData(text: url));
+    _showSnackBar(
+      message: 'Cloudflare URL copied to clipboard',
+      icon: Icons.check_circle_outline,
+      backgroundColor: Colors.green,
+    );
+  }
+
+
+   // Improved URL detection and handling
+  void _handleCloudflareUrl(String output) {
+    // Print the output for debugging
+    print('Analyzing output for URL: $output');
+    
+    // More comprehensive regex pattern
+    final RegExp urlRegex = RegExp(
+      r'https?\s*:?\s*//\s*[-a-zA-Z0-9]+(?:\s*\.\s*trycloudflare\s*\.\s*com\b)',
+      caseSensitive: false,
+      multiLine: true,
+    );
+    
+    try {
+      final matches = urlRegex.allMatches(output);
+      print('Found ${matches.length} potential URL matches');
+      
+      for (final match in matches) {
+        final rawUrl = match.group(0);
+        print('Raw matched URL: $rawUrl');
+        
+        if (rawUrl != null) {
+          // Clean the URL: remove spaces and ensure proper format
+          final cleanUrl = rawUrl
+              .replaceAll(RegExp(r'\s+'), '') // Remove all whitespace
+              .replaceAll(RegExp(r':{2,}'), ':') // Fix multiple colons
+              .toLowerCase(); // Normalize to lowercase
+          
+          print('Cleaned URL: $cleanUrl');
+          
+          // Validate the cleaned URL
+          if (cleanUrl.contains('trycloudflare.com') && 
+              cleanUrl.startsWith('http') &&
+              cleanUrl != _cloudflaredUrl) {
+            
+            print('Valid new Cloudflare URL detected: $cleanUrl');
+            
+            setState(() {
+              _cloudflaredUrl = cleanUrl;
+            });
+            
+            _copyUrlToClipboard(cleanUrl);
+          }
+        }
+      }
+    } catch (e) {
+      print('Error processing URL: $e');
+      _addToTerminal('⚠️ Error processing Cloudflare URL: $e');
+    }
+  }
+ // Updated process output handler
+  void _addToTerminal(String message) {
+    print('Terminal output: $message'); // Add logging
+    setState(() {
+      _terminalOutput.add(message.trim());
+      // Keep only the last 1000 lines to prevent memory issues
+      if (_terminalOutput.length > 1000) {
+        _terminalOutput.removeAt(0);
+      }
+    });
+    
+    // Auto-scroll to the bottom after a brief delay
+    Future.delayed(Duration(milliseconds: 50), () {
+      if (_scrollController.hasClients) {
+        _scrollController.animateTo(
+          _scrollController.position.maxScrollExtent,
+          duration: Duration(milliseconds: 200),
+          curve: Curves.easeOut,
+        );
+      }
+    });
+  }
+  // Improved clipboard handling
+  Future<void> _copyUrlToClipboard(String url) async {
+    try {
+      print('Attempting to copy URL to clipboard: $url');
+      
+      await Clipboard.setData(ClipboardData(text: url));
+      
+      print('URL copied successfully');
+      _addToTerminal('📋 New Cloudflare URL copied to clipboard: $url');
+      
+      // Show success message
+      _showSnackBar(
+        message: 'Cloudflare URL copied to clipboard',
+        icon: Icons.check_circle_outline,
+        backgroundColor: Colors.green,
+      );
+    } catch (e) {
+      print('Error copying to clipboard: $e');
+      _addToTerminal('⚠️ Error copying URL to clipboard: $e');
+      
+      // Show error message
+      _showSnackBar(
+        message: 'Failed to copy URL: $e',
+        icon: Icons.error_outline,
+        backgroundColor: Colors.red,
+      );
+    }
+  }
+
+
+
+  void _startServer(BuildContext context) {
+    context.read<ProcessCubit>().startServer(_urlController.text);
+  }
+
+  void _stopServer(BuildContext context) {
+    context.read<ProcessCubit>().stopServer();
+  }
+
+  void _startMining(BuildContext context) {
+    context.read<ProcessCubit>().startMining();
+  }
+
+  void _stopMining(BuildContext context) {
+    context.read<ProcessCubit>().stopMining();
+  }
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
-    _checkCloudflared();
-  }
+        // Initialize by checking cloudflared status
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<ProcessCubit>().checkCloudflared();
+    });
 
+    _tabController = TabController(length: 2, vsync: this);
+  }
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: LayoutBuilder(
-        builder: (context, constraints) {
-          if (constraints.maxWidth > 1200) {
-            return _buildWideLayout();
-          } else if (constraints.maxWidth > 600) {
-            return _buildMediumLayout();
-          } else {
-            return _buildNarrowLayout();
-          }
-        },
-      ),
+    return BlocBuilder<ProcessCubit, ProcessState>(
+      builder: (context, state) {
+        return Scaffold(
+          body: LayoutBuilder(
+            builder: (context, constraints) {
+              if (constraints.maxWidth > 1200) {
+                return _buildWideLayout(state);
+              } else if (constraints.maxWidth > 600) {
+                return _buildMediumLayout(state);
+              } else {
+                return _buildNarrowLayout(state);
+              }
+            },
+          ),
+        );
+      },
     );
   }
 
-  Widget _buildWideLayout() {
+  Widget _buildWideLayout(ProcessState state) {
     return Row(
       children: [
-        _buildSidebar(),
+        _buildSidebar(state),
         Expanded(
           flex: 3,
-          child: _buildMainContent(isWide: true),
+          child: _buildMainContent(state, isWide: true),
         ),
       ],
     );
   }
 
-  Widget _buildMediumLayout() {
+  Widget _buildMediumLayout(ProcessState state) {
     return Row(
       children: [
-        if (_isExpanded) _buildSidebar(),
+        if (_isExpanded) _buildSidebar(state),
         Expanded(
-          child: _buildMainContent(isWide: false),
+          child: _buildMainContent(state, isWide: false),
         ),
       ],
     );
   }
 
-  Widget _buildNarrowLayout() {
-    return _buildMainContent(isWide: false);
+  Widget _buildNarrowLayout(ProcessState state) {
+    return _buildMainContent(state, isWide: false);
   }
 
-  Widget _buildSidebar() {
+  Widget _buildSidebar(ProcessState state) {
     return Container(
       width: 300,
       color: Color(0xFF1A1A2E),
@@ -242,9 +351,9 @@ ProcessManager? _serverManager;
                   children: [
                     _buildBalanceCard(),
                     SizedBox(height: 16),
-                    _buildStatusCard(),
+                    _buildStatusCard(state),
                     SizedBox(height: 16),
-                    _buildQuickActions(),
+                    _buildQuickActions(state),
                   ],
                 ),
               ),
@@ -267,85 +376,89 @@ ProcessManager? _serverManager;
       ),
       child: Row(
         children: [
-        GestureDetector(
-          child: Icon(Icons.arrow_back, color: Colors.white, size: 32),
-          onTap: () => Navigator.pop(context),
-        ),
+          GestureDetector(
+            child: Icon(Icons.arrow_back, color: Colors.white, size: 32),
+            onTap: () => Navigator.pop(context),
+          ),
         ],
       ),
     );
   }
-
-  Widget _buildBalanceCard() {
-    return Container(
-      padding: EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [Color(0xFF2A2A4A), Color(0xFF1A1A2E)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withOpacity(0.1)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Balance',
-                style: GoogleFonts.poppins(
-                  color: Colors.white70,
-                  fontSize: 16,
-                ),
-              ),
-              Container(
-                padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  color: Colors.orange.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Text(
-                  'SMP',
-                  style: TextStyle(
-                    color: Colors.orange,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          SizedBox(height: 12),
-          Text(
-            '1,234.56',
-            style: GoogleFonts.poppins(
-              color: Colors.white,
-              fontSize: 32,
-              fontWeight: FontWeight.bold,
+Widget _buildBalanceCard() {
+  return BlocBuilder<WalletCubit, WalletState>(
+    builder: (context, state) {
+      if (state is WalletLoading) {
+        return Center(
+          child: CircularProgressIndicator(color: Colors.orange),
+        );
+      } else if (state is WalletLoaded) {
+        return Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [Color(0xFF2A2A4A), Color(0xFF1A1A2E)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
             ),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: Colors.white.withOpacity(0.1)),
           ),
-          SizedBox(height: 8),
-          Row(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(Icons.arrow_upward, color: Colors.green, size: 16),
-              SizedBox(width: 4),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Balance',
+                    style: GoogleFonts.poppins(
+                      color: Colors.white70,
+                      fontSize: 16,
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: Colors.orange.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      'SMP',
+                      style: TextStyle(
+                        color: Colors.orange,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
               Text(
-                '+2.5% today',
-                style: TextStyle(
-                  color: Colors.green,
+                state.balance.toStringAsFixed(2),
+                style: GoogleFonts.poppins(
+                  color: Colors.white,
+                  fontSize: 32,
                   fontWeight: FontWeight.bold,
                 ),
               ),
             ],
           ),
-        ],
-      ),
-    );
-  }
+        );
+      } else if (state is WalletError) {
+        return Center(
+          child: Text(
+            '⚠️ Error loading balance',
+            style: GoogleFonts.poppins(color: Colors.red, fontSize: 16),
+          ),
+        );
+      }
+      return SizedBox.shrink();
+    },
+  );
+}
 
-  Widget _buildStatusCard() {
+  Widget _buildStatusCard(ProcessState state) {
     return Container(
       padding: EdgeInsets.all(24),
       decoration: BoxDecoration(
@@ -364,11 +477,11 @@ ProcessManager? _serverManager;
             ),
           ),
           SizedBox(height: 16),
-          _buildStatusRow('Cloudflared', _isCloudflaredInstalled),
+          _buildStatusRow('Cloudflared', state.isCloudflaredInstalled),
           SizedBox(height: 12),
-          _buildStatusRow('Server', _serverProcess != null),
+          _buildStatusRow('Server', state.isServerRunning),
           SizedBox(height: 12),
-          _buildStatusRow('Mining', _isMining),
+          _buildStatusRow('Mining', state.isMining),
         ],
       ),
     );
@@ -414,34 +527,7 @@ ProcessManager? _serverManager;
     );
   }
 
-  Widget _buildQuickActions() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Text(
-          'Quick Actions',
-          style: GoogleFonts.poppins(
-            color: Colors.white70,
-            fontSize: 16,
-          ),
-        ),
-        SizedBox(height: 16),
-        _buildActionButton(
-          icon: Icons.play_arrow,
-          label: _isMining ? 'Stop Mining' : 'Start Mining',
-          color: _isMining ? Colors.red : Colors.green,
-          onPressed: _toggleMining,
-        ),
-        SizedBox(height: 12),
-        _buildActionButton(
-          icon: Icons.refresh,
-          label: 'Check Cloudflared',
-          color: Colors.blue,
-          onPressed: _checkCloudflared,
-        ),
-      ],
-    );
-  }
+
 
   Widget _buildActionButton({
     required IconData icon,
@@ -476,7 +562,7 @@ ProcessManager? _serverManager;
     );
   }
 
-  Widget _buildMainContent({required bool isWide}) {
+  Widget _buildMainContent(ProcessState state, {required bool isWide}) {
     return Container(
       color: Color(0xFF0F0F1E),
       child: Column(
@@ -489,12 +575,12 @@ ProcessManager? _serverManager;
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   if (!isWide) ...[
-                    _buildMobileBalanceCard(),
+                    _buildMobileBalanceCard(state),
                     SizedBox(height: 24),
                   ],
-                  _buildCloudflaredSection(),
+                  _buildCloudflaredSection(state),
                   SizedBox(height: 24),
-                  Expanded(child: _buildTerminal()),
+                  Expanded(child: _buildTerminal(state)),
                 ],
               ),
             ),
@@ -531,20 +617,16 @@ ProcessManager? _serverManager;
               ),
             ),
           ),
-          IconButton(
-            icon: Icon(Icons.notifications_outlined, color: Colors.white),
-            onPressed: () {},
-          ),
-          IconButton(
-            icon: Icon(Icons.settings_outlined, color: Colors.white),
-            onPressed: () {},
-          ),
+          // IconButton(
+          //   icon: Icon(Icons.help_outline, color: Colors.white),
+          //   onPressed: () => _showHelpDialog(),
+          // ),
         ],
       ),
     );
   }
 
-  Widget _buildMobileBalanceCard() {
+  Widget _buildMobileBalanceCard(ProcessState state) {
     return Container(
       padding: EdgeInsets.all(24),
       decoration: BoxDecoration(
@@ -570,7 +652,7 @@ ProcessManager? _serverManager;
                 ),
                 SizedBox(height: 8),
                 Text(
-                  '1,234.56 SMP',
+                  '${state.currentBalance.toStringAsFixed(2)} SMP',
                   style: GoogleFonts.poppins(
                     color: Colors.white,
                     fontSize: 28,
@@ -587,7 +669,7 @@ ProcessManager? _serverManager;
               shape: BoxShape.circle,
             ),
             child: Icon(
-              Icons.currency_bitcoin,
+              Icons.wallet,
               color: Colors.orange,
               size: 32,
             ),
@@ -596,118 +678,248 @@ ProcessManager? _serverManager;
       ),
     );
   }
-Widget _buildCloudflaredSection() {
-  return Container(
-    padding: EdgeInsets.all(24),
-    decoration: BoxDecoration(
-      color: Color(0xFF1A1A2E),
-      borderRadius: BorderRadius.circular(20),
-      border: Border.all(color: Colors.white.withOpacity(0.1)),
-    ),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+
+   Widget _buildQuickActions(ProcessState state) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Text(
-          'Cloudflared Configuration',
+          'Quick Actions',
           style: GoogleFonts.poppins(
-            color: Colors.white,
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
+            color: Colors.white70,
+            fontSize: 16,
           ),
         ),
         SizedBox(height: 16),
-        TextFormField(
-          controller: _urlController,
-          style: TextStyle(color: Colors.white),
-          decoration: InputDecoration(
-            hintText: 'Paste your Cloudflared URL here',
-            hintStyle: TextStyle(color: Colors.white38),
-            prefixIcon: Icon(Icons.link, color: Colors.white54),
-            suffixIcon: IconButton(
-              icon: Icon(Icons.paste, color: Colors.white54),
-              onPressed: () async {
-                ClipboardData? data = await Clipboard.getData('text/plain');
-                if (data?.text != null) {
-                  _urlController.text = data!.text!;
-                }
-              },
-            ),
-            filled: true,
-            fillColor: Color(0xFF2A2A4A),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide.none,
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: Colors.white.withOpacity(0.1)),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: Colors.orange),
-            ),
-          ),
+        _buildActionButton(
+          icon: state.isMining ? Icons.stop : Icons.play_arrow,
+          label: state.isMining ? 'Stop Mining' : 'Start Mining',
+          color: state.isMining ? Colors.red : Colors.green,
+          onPressed: () => _handleMiningToggle(state),
         ),
-        SizedBox(height: 16),
-        Row(
-          children: [
-            Expanded(
-              child: _buildConfigButton(
-                icon: _isServerRunning ? Icons.stop : Icons.play_circle_outline,
-                label: _isServerRunning ? 'Stop Server' : 'Start Server',
-                color: _isServerRunning ? Colors.red : Colors.green,
-                onPressed: _isServerRunning ? _stopServer : _startServer,
-              ),
-            ),
-            SizedBox(width: 16),
-            Expanded(
-              child: _buildConfigButton(
-                icon: Icons.refresh,
-                label: 'Check Status',
-                color: Colors.blue,
-                onPressed: _checkCloudflared,
-              ),
-            ),
-          ],
+        SizedBox(height: 12),
+        _buildActionButton(
+          icon: Icons.refresh,
+          label: 'Check Cloudflared',
+          color: Colors.blue,
+          onPressed: () => context.read<ProcessCubit>().checkCloudflared(),
         ),
       ],
-    ),
-  );
-}
-Future<void> _stopServer() async {
-  if (!_isServerRunning || _serverManager == null) {
-    _showSnackBar(
-      message: 'Server is not running',
-      icon: Icons.info_outline,
-      backgroundColor: Colors.blue,
     );
-    return;
   }
 
-  try {
-    _addToTerminal('🛑 Stopping server...');
-    await _serverManager!.stop();
-    _serverManager = null;
-    
-    setState(() {
-      _isServerRunning = false;
-    });
-    
-    _addToTerminal('✅ Server stopped successfully');
-    _showSnackBar(
-      message: 'Server stopped successfully',
-      icon: Icons.check_circle_outline,
-      backgroundColor: Colors.orange,
-    );
-  } catch (e) {
-    _addToTerminal('⚠️ Error stopping server: $e');
-    _showSnackBar(
-      message: 'Error stopping server: ${e.toString()}',
-      icon: Icons.error_outline,
-      backgroundColor: Colors.red,
+  Widget _buildCloudflaredSection(ProcessState state) {
+    return Container(
+      padding: EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: Color(0xFF1A1A2E),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.white.withOpacity(0.1)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Cloudflared Configuration',
+            style: GoogleFonts.poppins(
+              color: Colors.white,
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          SizedBox(height: 16),
+          TextFormField(
+            controller: _urlController,
+            style: TextStyle(color: Colors.white),
+            decoration: InputDecoration(
+              hintText: 'Enter your server URL',
+              prefixIcon: Icon(Icons.link, color: Colors.white54),
+              suffixIcon: IconButton(
+                icon: Icon(Icons.paste, color: Colors.white54),
+                onPressed: () async {
+                  final data = await Clipboard.getData('text/plain');
+                  if (data?.text != null) {
+                    _urlController.text = data!.text!;
+                  }
+                },
+              ),
+              filled: true,
+              fillColor: Color(0xFF2A2A4A),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide.none,
+              ),
+            ),
+          ),
+          SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: _buildConfigButton(
+                  icon: state.isServerRunning ? Icons.stop : Icons.play_circle_outline,
+                  label: state.isServerRunning ? 'Stop Server' : 'Start Server',
+                  color: state.isServerRunning ? Colors.red : Colors.green,
+                  onPressed: () => _handleServerToggle(state),
+                ),
+              ),
+              SizedBox(width: 16),
+              Expanded(
+                child: _buildConfigButton(
+                  icon: Icons.refresh,
+                  label: 'Check Status',
+                  color: Colors.blue,
+                  onPressed: () => context.read<ProcessCubit>().checkCloudflared(),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
-}
+
+  Widget _buildTerminal(ProcessState state) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Color(0xFF1A1A2E),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.white.withOpacity(0.1)),
+      ),
+      child: Column(
+        children: [
+          _buildTerminalHeader(state),
+          Expanded(
+            child: _buildTerminalContent(state),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTerminalHeader(ProcessState state) {
+    return Container(
+      padding: EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Color(0xFF2A2A4A),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Row(
+                children: [
+                  _buildTerminalDot(Colors.red),
+                  SizedBox(width: 8),
+                  _buildTerminalDot(Colors.yellow),
+                  SizedBox(width: 8),
+                  _buildTerminalDot(Colors.green),
+                ],
+              ),
+              SizedBox(width: 16),
+              Text(
+                'Terminal Output',
+                style: GoogleFonts.poppins(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              Spacer(),
+              IconButton(
+                icon: Icon(Icons.copy_all, color: Colors.white70),
+                onPressed: () => _copyTerminalOutput(state.terminalOutput),
+                tooltip: 'Copy all',
+              ),
+              IconButton(
+                icon: Icon(Icons.delete_outline, color: Colors.white70),
+                onPressed: () => context.read<ProcessCubit>().clearTerminal(),
+                tooltip: 'Clear terminal',
+              ),
+            ],
+          ),
+          if (state.cloudflaredUrl != null) ...[
+            SizedBox(height: 12),
+            _buildCloudflaredUrlSection(state.cloudflaredUrl!),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCloudflaredUrlSection(String url) {
+    return Container(
+      padding: EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.blue.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.blue.withOpacity(0.2)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.link, color: Colors.blue, size: 16),
+              SizedBox(width: 8),
+              Expanded(
+                child: SelectableText(
+                  url,
+                  style: GoogleFonts.firaCode(
+                    color: Colors.blue,
+                    fontSize: 13,
+                  ),
+                ),
+              ),
+              IconButton(
+                icon: Icon(Icons.copy, color: Colors.blue, size: 20),
+                onPressed: () => _copyCloudflaredUrl(url),
+                tooltip: 'Copy URL',
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTerminalContent(ProcessState state) {
+    return ListView.builder(
+      controller: _scrollController,
+      padding: EdgeInsets.all(16),
+      itemCount: state.terminalOutput.length,
+      itemBuilder: (context, index) {
+        final output = state.terminalOutput[index];
+        return Padding(
+          padding: EdgeInsets.symmetric(vertical: 4),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '❯',
+                style: TextStyle(
+                  color: Colors.green,
+                  fontFamily: 'JetBrains Mono',
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  output,
+                  style: GoogleFonts.firaCode(
+                    color: _getOutputColor(output),
+                    fontSize: 14,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   Widget _buildConfigButton({
     required IconData icon,
     required String label,
@@ -741,102 +953,8 @@ Future<void> _stopServer() async {
     );
   }
 
-  Widget _buildTerminal() {
-    return Container(
-      decoration: BoxDecoration(
-        color: Color(0xFF1A1A2E),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withOpacity(0.1)),
-      ),
-      child: Column(
-        children: [
-          _buildTerminalHeader(),
-          Expanded(
-            child: _buildTerminalContent(),
-          ),
-        ],
-      ),
-    );
-  }
 
-
-  // Modify the terminal header to include the Cloudflared URL
-  Widget _buildTerminalHeader() {
-    return Container(
-      padding: EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Color(0xFF2A2A4A),
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              Row(
-                children: [
-                  _buildTerminalDot(Colors.red),
-                  SizedBox(width: 8),
-                  _buildTerminalDot(Colors.yellow),
-                  SizedBox(width: 8),
-                  _buildTerminalDot(Colors.green),
-                ],
-              ),
-              SizedBox(width: 16),
-              Text(
-                'Terminal Output',
-                style: GoogleFonts.poppins(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              Spacer(),
-              IconButton(
-                icon: Icon(Icons.copy_all, color: Colors.white70),
-                onPressed: _copyTerminalOutput,
-                tooltip: 'Copy all',
-              ),
-              IconButton(
-                icon: Icon(Icons.delete_outline, color: Colors.white70),
-                onPressed: () => setState(() => _terminalOutput.clear()),
-                tooltip: 'Clear terminal',
-              ),
-            ],
-          ),
-          if (_cloudflaredUrl != null) ...[
-            SizedBox(height: 8),
-            Container(
-              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              decoration: BoxDecoration(
-                color: Colors.blue.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.blue.withOpacity(0.2)),
-              ),
-              child: Row(
-                children: [
-                  Icon(Icons.link, color: Colors.blue, size: 16),
-                  SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      _cloudflaredUrl!,
-                      style: GoogleFonts.firaCode(
-                        color: Colors.blue,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ),
-                  IconButton(
-                    icon: Icon(Icons.copy, color: Colors.blue, size: 16),
-                    onPressed: _copyCloudflaredUrl,
-                    tooltip: 'Copy URL',
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
+ 
 
   Widget _buildTerminalDot(Color color) {
     return Container(
@@ -849,302 +967,13 @@ Future<void> _stopServer() async {
     );
   }
 
-  Widget _buildTerminalContent() {
-    return Container(
-      padding: EdgeInsets.all(16),
-      child: ListView.builder(
-        controller: _scrollController,
-        itemCount: _terminalOutput.length,
-        itemBuilder: (context, index) {
-          final output = _terminalOutput[index];
-          return Padding(
-            padding: EdgeInsets.symmetric(vertical: 4),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '❯',
-                  style: TextStyle(
-                    color: Colors.green,
-                    fontFamily: 'JetBrains Mono',
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    output,
-                    style: GoogleFonts.firaCode(
-                      color: _getOutputColor(output),
-                      fontSize: 14,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          );
-        },
-      ),
-    );
+ @override
+  void dispose() {
+    _urlController.dispose();
+    _tabController.dispose();
+    _scrollController.dispose();
+    super.dispose();
   }
-
-  Color _getOutputColor(String output) {
-    if (output.toLowerCase().contains('error')) {
-      return Colors.red;
-    } else if (output.toLowerCase().contains('success')) {
-      return Colors.green;
-    } else if (output.toLowerCase().contains('warning')) {
-      return Colors.yellow;
-    }
-    return Colors.white70;
-  }
-
-  Future<void> _checkCloudflared() async {
-    try {
-      _addToTerminal('Checking Cloudflared installation...');
-      final result = await Process.run('cloudflared', ['--version']);
-      setState(() {
-        _isCloudflaredInstalled = result.exitCode == 0;
-      });
-      _addToTerminal(_isCloudflaredInstalled 
-        ? '✅ Cloudflared is installed: ${result.stdout}'
-        : '❌ Cloudflared is not installed');
-    } catch (e) {
-      setState(() {
-        _isCloudflaredInstalled = false;
-      });
-      _addToTerminal('❌ Error checking Cloudflared: $e');
-    }
-  }
-void _addToTerminal(String message) {
-  setState(() {
-    _terminalOutput.add(message.trim());
-    // Keep only the last 1000 lines to prevent memory issues
-    if (_terminalOutput.length > 1000) {
-      _terminalOutput.removeAt(0);
-    }
-  });
-  
-  // Auto-scroll to the bottom after a brief delay to ensure the layout is updated
-  Future.delayed(Duration(milliseconds: 50), () {
-    if (_scrollController.hasClients) {
-      _scrollController.animateTo(
-        _scrollController.position.maxScrollExtent,
-        duration: Duration(milliseconds: 200),
-        curve: Curves.easeOut,
-      );
-    }
-  });
-}
-  Future<void> _copyTerminalOutput() async {
-    final String textToCopy = _terminalOutput.join('\n');
-    await Clipboard.setData(ClipboardData(text: textToCopy));
-    _showSnackBar(
-      message: 'Terminal output copied to clipboard',
-      icon: Icons.check_circle_outline,
-      backgroundColor: Colors.green,
-    );
-  }
-
-  void _showSnackBar({
-    required String message,
-    required IconData icon,
-    required Color backgroundColor,
-  }) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Row(
-          children: [
-            Icon(icon, color: Colors.white),
-            SizedBox(width: 8),
-            Text(message),
-          ],
-        ),
-        backgroundColor: backgroundColor,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(10),
-        ),
-        margin: EdgeInsets.all(10),
-        duration: Duration(seconds: 3),
-        action: SnackBarAction(
-          label: 'Dismiss',
-          textColor: Colors.white,
-          onPressed: () {},
-        ),
-      ),
-    );
-  }
-  
-  Future<void> _startServer() async {
-  if (_urlController.text.isEmpty) {
-    _showSnackBar(
-      message: 'Please paste the Cloudflare URL',
-      icon: Icons.error_outline,
-      backgroundColor: Colors.red,
-    );
-    return;
-  }
-
-  if (_isServerRunning) {
-    _showSnackBar(
-      message: 'Server is already running',
-      icon: Icons.info_outline,
-      backgroundColor: Colors.blue,
-    );
-    return;
-  }
-
-  try {
-    _addToTerminal('🚀 Starting server...');
-    _serverManager = await createServerProcess(
-      _urlController.text,
-      (data) => _addToTerminal('📤 Server: $data'),
-      (error) => _addToTerminal('⚠️ Server Error: $error'),
-      () {
-        if (_serverManager != null) {
-          setState(() => _isServerRunning = false);
-          _addToTerminal('🔄 Server process ended');
-        }
-      },
-    );
-    
-    setState(() => _isServerRunning = true);
-    
-    _showSnackBar(
-      message: 'Server started successfully',
-      icon: Icons.check_circle_outline,
-      backgroundColor: Colors.green,
-    );
-  } catch (e) {
-    setState(() => _isServerRunning = false);
-    _addToTerminal('❌ Error starting server: $e');
-    _showSnackBar(
-      message: 'Failed to start server: ${e.toString()}',
-      icon: Icons.error_outline,
-      backgroundColor: Colors.red,
-    );
-  }
-}
-  Future<void> _toggleMining() async {
-    if (_isMining) {
-      _stopMining();
-    } else {
-      _startMining();
-    }
-  }
-
- 
-
- 
-  // Modified mining start method
-Future<void> _startMining() async {
-  if (!_isCloudflaredInstalled) {
-    _showSnackBar(
-      message: 'Please install Cloudflared first',
-      icon: Icons.error_outline,
-      backgroundColor: Colors.red,
-    );
-    return;
-  }
-
-  if (_isMining) {
-    _showSnackBar(
-      message: 'Mining is already in progress',
-      icon: Icons.info_outline,
-      backgroundColor: Colors.blue,
-    );
-    return;
-  }
-
-  try {
-    _addToTerminal('🚀 Starting Cloudflared tunnel...');
-    _tunnelManager = await createTunnelProcess(
-      (data) {
-        _addToTerminal('📤 Cloudflared: $data');
-        _extractCloudflaredUrl(data);
-      },
-      (error) => _addToTerminal('⚠️ Cloudflared Error: $error'),
-      () {
-        setState(() => _isMining = false);
-        _addToTerminal('🔄 Cloudflared process ended');
-      },
-    );
-
-    setState(() {
-      _isMining = true;
-      _miningStatus = 'Mining in progress';
-    });
-
-    _showSnackBar(
-      message: 'Mining started successfully',
-      icon: Icons.check_circle_outline,
-      backgroundColor: Colors.green,
-    );
-  } catch (e) {
-    setState(() => _isMining = false);
-    _addToTerminal('❌ Error starting mining: $e');
-    _showSnackBar(
-      message: 'Failed to start mining: ${e.toString()}',
-      icon: Icons.error_outline,
-      backgroundColor: Colors.red,
-    );
-  }
-}
-
-  // Modified stop method
-  Future<void> _stopMining() async {
-    _addToTerminal('🛑 Stopping mining processes...');
-    
-    try {
-      if (_tunnelProcess != null) {
-        // Send SIGTERM signal for graceful shutdown
-        _tunnelProcess!.kill(ProcessSignal.sigterm);
-        await _tunnelProcess!.exitCode;
-        _tunnelProcess = null;
-      }
-      
-      if (_serverProcess != null) {
-        _serverProcess!.kill(ProcessSignal.sigterm);
-        await _serverProcess!.exitCode;
-        _serverProcess = null;
-      }
-      
-      setState(() {
-        _isMining = false;
-        _isServerRunning = false;
-        _miningStatus = 'Mining stopped';
-        _cloudflaredUrl = null;
-      });
-      
-      _addToTerminal('✅ Mining stopped successfully');
-      _showSnackBar(
-        message: 'Mining stopped successfully',
-        icon: Icons.check_circle_outline,
-        backgroundColor: Colors.orange,
-      );
-    } catch (e) {
-      _addToTerminal('⚠️ Error stopping processes: $e');
-      _showSnackBar(
-        message: 'Error stopping processes: ${e.toString()}',
-        icon: Icons.error_outline,
-        backgroundColor: Colors.red,
-      );
-    }
-  }
-
-  // Add new method for copying Cloudflared URL
-  void _copyCloudflaredUrl() {
-    if (_cloudflaredUrl != null) {
-      Clipboard.setData(ClipboardData(text: _cloudflaredUrl!));
-      _showSnackBar(
-        message: 'Cloudflared URL copied to clipboard',
-        icon: Icons.check_circle_outline,
-        backgroundColor: Colors.green,
-      );
-    }
-  }
-
 }
 
 

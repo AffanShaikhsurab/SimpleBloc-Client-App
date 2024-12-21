@@ -4,7 +4,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:simplicity_coin/blocs/createWallet_bloc.dart';
 import 'package:simplicity_coin/blocs/wallet_bloc.dart';
 import 'package:simplicity_coin/screens/createWallet_screen.dart';
-import 'package:simplicity_coin/screens/home_screen.dart';
 import 'package:simplicity_coin/screens/loadWallet_screen.dart';
 import 'package:simplicity_coin/main.dart';
 import 'package:simplicity_coin/screens/password_screen.dart';

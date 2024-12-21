@@ -4,7 +4,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:simplicity_coin/screens/home_screen.dart';
+import 'package:simplicity_coin/blocs/process_bloc.dart';
 import 'package:simplicity_coin/screens/onboarding_screen.dart';
 import 'package:simplicity_coin/screens/password_screen.dart';
 import 'blocs/createWallet_bloc.dart';
@@ -31,6 +31,9 @@ void main() async {
         ),
          BlocProvider(
           create: (_) => MiningCubit(),
+        ),
+        BlocProvider(
+      create: (context) => ProcessCubit(),
         ),
         BlocProvider(
           create: (_) => PasskeyCubit(prefs),
