@@ -179,26 +179,43 @@ Future<String> sendTransaction(String recipient, double amount) async {
           final chain = json.decode(response.body)['chain'];
           List<Transaction> userTransactions = [];
           print("the legnth of chain is ${chain.length}");
-          for (var block in chain) {
-            for (var tx in block['transactions']) {
-              
-              if (tx['transaction']['sender'] == publicKey ||
-                  tx['transaction']['recipient'] == publicKey) {
-                bool isOutgoing = tx['transaction']['sender'] == publicKey;
-                DateTime timestamp =DateTime.fromMillisecondsSinceEpoch(( tx['transaction']['timestamp'] * 1000).toInt());
-                userTransactions.add(
-                  Transaction(
-                    amount: tx['transaction']['amount'],
-                    timestamp: timestamp,
-                    transactionId: tx['transaction']['transaction_id'],
-                    sender: tx['transaction']['sender'],
-                    recipient: tx['transaction']['recipient'],
-                    isOutgoing: isOutgoing,
-                  ),
-                );
-              }
-            }
-          }
+         for (var block in chain) {
+  // Ensure 'transactions' exists and is a list
+  var transactions = block['transactions'] as List? ?? [];
+  
+  for (var transaction in transactions) {
+    var txDetails = transaction['transaction'];
+    
+    // Check if both 'sender' and 'recipient' keys exist in the transaction
+    if (txDetails != null &&
+        txDetails.containsKey('sender') &&
+        txDetails.containsKey('recipient')) {
+      
+      String sender = txDetails['sender'];
+      String recipient = txDetails['recipient'];
+
+      // Check if the publicKey is involved in the transaction
+      if (sender == publicKey || recipient == publicKey) {
+        bool isOutgoing = sender == publicKey;
+        DateTime timestamp = DateTime.fromMillisecondsSinceEpoch(
+          (txDetails['timestamp'] * 1000).toInt(),
+        );
+
+        userTransactions.add(
+          Transaction(
+            amount: txDetails['amount'],
+            timestamp: timestamp,
+            transactionId: txDetails['transaction_id'],
+            sender: sender,
+            recipient: recipient,
+            isOutgoing: isOutgoing,
+          ),
+        );
+      }
+    }
+  }
+}
+
         
           return userTransactions;
         }
