@@ -182,7 +182,6 @@ Future<void> _storeKeysLocally(String publicKey, String privateKey) async {
   try {
 
     final accountJson = _prefs.getString("publicKey"); // Retrieve JSON string from SharedPreferences
-    final accountJson = _prefs.getString("publicKey"); // Retrieve JSON string from SharedPreferences
     if (accountJson != null) {
       final account = jsonDecode(accountJson); // Convert JSON string back to a Dart object
       // Use the account object as needed
