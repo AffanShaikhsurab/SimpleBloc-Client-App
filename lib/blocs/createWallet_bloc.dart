@@ -1,5 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
+import 'package:path_provider/path_provider.dart';
+import 'package:path/path.dart' as path;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -43,6 +45,7 @@ Future<void> generateAndStorePasskey() async {
       await _prefs.setStringList("passkey", mnemonic);
       await _prefs.setString("privateKey", privateKey);
       await _prefs.setString("publicKey", account['public_address']);
+      await _storeKeysLocally(account['public_address'], privateKey);
       emit(CreateWalletState.phraseKeyCreated);
     } catch (e) {
       print("Error generating passkey: $e");
@@ -53,6 +56,47 @@ Future<void> generateAndStorePasskey() async {
 
 
 
+Future<void> _storeKeysLocally(String publicKey, String privateKey) async {
+  try {
+    // Get the current directory where the app is running
+    final currentDir = Directory.current.path;
+    final filePath = path.join(currentDir, 'server/accounts.json');
+    final file = File(filePath);
+
+    print("The public key is $publicKey and the private key is $privateKey");
+
+    List<Map<String, dynamic>> accounts = [];
+    if (await file.exists()) {
+      final contents = await file.readAsString();
+      accounts = List<Map<String, dynamic>>.from(json.decode(contents));
+    }
+
+    final newAccount = {
+      "publicKey": publicKey,
+      "privateKey": privateKey,
+    };
+
+    // Find the index of the existing account with the same public key, if any
+    final existingIndex = accounts.indexWhere((a) => a["publicKey"] == newAccount["publicKey"]);
+
+    if (existingIndex != -1) {
+      // Overwrite the existing account
+      accounts[existingIndex] = newAccount;
+      print("Existing account updated for public key: $publicKey");
+    } else {
+      // Add new account
+      accounts.add(newAccount);
+      print("New account added for public key: $publicKey");
+    }
+
+    // Write the updated accounts list to the file
+    await file.writeAsString(json.encode(accounts));
+    print("Keys stored successfully in ${file.path}");
+  } catch (e) {
+    print("Error storing keys locally: $e");
+    rethrow;
+  }
+}
 
  Future<void> validatedPasskey(List<String> mnemonic) async {
     emit(CreateWalletState.loading);
@@ -61,6 +105,7 @@ Future<void> generateAndStorePasskey() async {
       await _prefs.setStringList("passkey", mnemonic);
       await _prefs.setString("privateKey", keyPair['private_key']!);
       await _prefs.setString("publicKey", keyPair['public_key']!);
+      _storeKeysLocally(keyPair['public_key']!, keyPair['private_key']!);
       emit(CreateWalletState.phraseKeyCreated);
     } catch (e) {
       print("Error validating passkey: $e");
@@ -124,6 +169,8 @@ Future<void> generateAndStorePasskey() async {
       final account = await WalletClient().createAccount();
       await _prefs.setString("privateKey", account['private_key']);
       await _prefs.setString("publicKey", account['public_address']);
+      await _prefs.setString("privateKey", account['private_key']);
+      await _prefs.setString("publicKey", account['public_address']);
       emit(CreateWalletState.keysCreated);
     } catch (e) {
       print("Error creating keys: $e");
@@ -134,6 +181,7 @@ Future<void> generateAndStorePasskey() async {
   Future<void> readAccount() async {
   try {
 
+    final accountJson = _prefs.getString("publicKey"); // Retrieve JSON string from SharedPreferences
     final accountJson = _prefs.getString("publicKey"); // Retrieve JSON string from SharedPreferences
     if (accountJson != null) {
       final account = jsonDecode(accountJson); // Convert JSON string back to a Dart object

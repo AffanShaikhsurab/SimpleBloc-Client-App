@@ -1,13 +1,16 @@
+import 'dart:convert';
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:simplicity_coin/screens/home_screen.dart';
+import 'package:simplicity_coin/blocs/process_bloc.dart';
 import 'package:simplicity_coin/screens/onboarding_screen.dart';
 import 'package:simplicity_coin/screens/password_screen.dart';
 import 'blocs/createWallet_bloc.dart';
 import 'blocs/wallet_bloc.dart';
 import 'services/wallet_service.dart';
-
+import 'blocs/mining_bloc.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
@@ -17,18 +20,20 @@ void main() async {
     "https://simplicity-server1.onrender.com",
     "https://simplicity-server.onrender.com",
   ]);
-
   // Check if the user is logged in
   bool isLoggedIn = prefs.getBool("accountCreated") ?? false;
-  print(
-    "the logged in status is " +
-        isLoggedIn.toString() 
-  );
+  // Run the app
   runApp(
     MultiBlocProvider(
       providers: [
         BlocProvider(
           create: (_) => CreateWalletCubit(prefs),
+        ),
+         BlocProvider(
+          create: (_) => MiningCubit(),
+        ),
+        BlocProvider(
+      create: (context) => ProcessCubit(),
         ),
         BlocProvider(
           create: (_) => PasskeyCubit(prefs),
