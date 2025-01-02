@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:qr_code_dart_scan/qr_code_dart_scan.dart';
 import 'package:simplicity_coin/blocs/wallet_bloc.dart';
 
 class SendTransactionScreen extends StatefulWidget {
@@ -195,20 +194,9 @@ class _SendTransactionScreenState extends State<SendTransactionScreen> {
   }
 
   Future<void> _scanQRCode() async {
-    try {
-      final result = await Navigator.push(
-        context,
-        MaterialPageRoute(builder: (context) => QRScannerScreen()),
-      );
-
-      if (result != null) {
-        setState(() {
-          _recipientController.text = result;
-        });
-      }
-    } catch (e) {
-      _showSnackBar(context, 'Failed to scan QR code: ${e.toString()}', isError: true);
-    }
+   
+      _showSnackBar(context, 'QR scanning functionality not yet implemented', isError: true);
+    
   }
 
   void _sendTransaction() async {
@@ -239,26 +227,6 @@ class _SendTransactionScreenState extends State<SendTransactionScreen> {
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         margin: EdgeInsets.all(10),
-      ),
-    );
-  }
-}
-
-class QRScannerScreen extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text('Scan QR Code'),
-        backgroundColor: Colors.black,
-      ),
-      body: QRCodeDartScanView(
-        scanInvertedQRCode: true,
-        typeScan: TypeScan.live,
-        formats: [BarcodeFormat.qrCode],
-        onCapture: (Result result) {
-          Navigator.pop(context, result.text);
-        },
       ),
     );
   }

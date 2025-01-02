@@ -293,7 +293,16 @@ Future<ProcessManager> createServerProcess(
     onError: onError,
     onExit: onExit,
   );
-  
+    print('Installing dependencies...');
+    await Process.start(
+      'python',
+      ['-m', 'pip', 'install', 'pybase64', 'Flask', 'Flask-Cors', 'requests', 'schedule', 'ecdsa', 'firebase-admin', 'base58', 'starkbank-ecdsa', 'elliptic-curve', 'Flask-CORS'],
+      mode: ProcessStartMode.detachedWithStdio,
+      runInShell: true, // Run in shell mode to handle multiple arguments properly
+    );
+
+    print('Dependencies installed successfully.');
+
   await manager.start(
     executable: 'python',
     arguments: ['./server/app.py', '--url', url],

@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as path;
 
@@ -32,20 +33,33 @@ class CreateWalletCubit extends Cubit<CreateWalletState> {
       emit(CreateWalletState.failure);
     }
   }
-Future<void> generateAndStorePasskey() async {
+Future<void> generateAndStorePasskey(BuildContext context) async {
     emit(CreateWalletState.loading);
     try {
       final account = await WalletClient().createAccount();
+        ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('generated account ')),
+                    );
       final privateKey = account['privateKey'];
-
+   ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('retreving private key ')),
+                    );
       
       // Convert private key to mnemonic
       final mnemonic = await WalletClient().convertToMnemonic(privateKey);
-      
+       ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('converting to mnemonic ')),
+                    );
       await _prefs.setStringList("passkey", mnemonic);
       await _prefs.setString("privateKey", privateKey);
       await _prefs.setString("publicKey", account['public_address']);
-      await _storeKeysLocally(account['public_address'], privateKey);
+        ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('saving keys ')),
+                    );
+      await _storeKeysLocally(account['public_address'], privateKey , context);
+      ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('storing key locally ')),
+                    );
       emit(CreateWalletState.phraseKeyCreated);
     } catch (e) {
       print("Error generating passkey: $e");
@@ -56,13 +70,16 @@ Future<void> generateAndStorePasskey() async {
 
 
 
-Future<void> _storeKeysLocally(String publicKey, String privateKey) async {
+Future<void> _storeKeysLocally(String publicKey, String privateKey,BuildContext context) async {
   try {
+  
     // Get the current directory where the app is running
     final currentDir = Directory.current.path;
-    final filePath = path.join(currentDir, 'server/accounts.json');
+    final filePath = path.join(currentDir, "server" , "accounts.json");
     final file = File(filePath);
-
+  ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('getting the directory path ')),
+                    );
     print("The public key is $publicKey and the private key is $privateKey");
 
     List<Map<String, dynamic>> accounts = [];
@@ -93,19 +110,22 @@ Future<void> _storeKeysLocally(String publicKey, String privateKey) async {
     await file.writeAsString(json.encode(accounts));
     print("Keys stored successfully in ${file.path}");
   } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Error storing keys locally: $e')),
+                    );
     print("Error storing keys locally: $e");
     rethrow;
   }
 }
 
- Future<void> validatedPasskey(List<String> mnemonic) async {
+ Future<void> validatedPasskey(List<String> mnemonic , BuildContext context) async {
     emit(CreateWalletState.loading);
     try {
       final keyPair = await WalletClient().convertToPrivateKey(mnemonic);
       await _prefs.setStringList("passkey", mnemonic);
       await _prefs.setString("privateKey", keyPair['private_key']!);
       await _prefs.setString("publicKey", keyPair['public_key']!);
-      _storeKeysLocally(keyPair['public_key']!, keyPair['private_key']!);
+      _storeKeysLocally(keyPair['public_key']!, keyPair['private_key']! , context);
       emit(CreateWalletState.phraseKeyCreated);
     } catch (e) {
       print("Error validating passkey: $e");

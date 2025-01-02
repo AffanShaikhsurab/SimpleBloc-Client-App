@@ -176,7 +176,9 @@ class _CreateWalletScreenState extends State<CreateWalletScreen> {
             return Center(
               child: ElevatedButton(
                 child: Text('Generate Recovery Phrase'),
-                onPressed: () => context.read<CreateWalletCubit>().generateAndStorePasskey(),
+                onPressed: () => context.read<CreateWalletCubit>().generateAndStorePasskey(
+                  context
+                ),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.orange,
                   shape: RoundedRectangleBorder(

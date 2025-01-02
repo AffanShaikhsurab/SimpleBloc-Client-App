@@ -367,14 +367,6 @@ class _LoadWalletScreenState extends State<LoadWalletScreen> {
         _showError('Please fill in all words');
         return;
       }
-
-      // Check for duplicates
-      Set<String> uniqueWords = Set.from(cleanedPhrase);
-      if (uniqueWords.length < cleanedPhrase.length) {
-        _showError('Duplicate words detected in recovery phrase');
-        return;
-      }
-
       // Validate each word
 
  
@@ -382,7 +374,7 @@ class _LoadWalletScreenState extends State<LoadWalletScreen> {
       // Validate complete phrase
 
       // Submit to bloc
-      context.read<CreateWalletCubit>().validatedPasskey(cleanedPhrase);
+      context.read<CreateWalletCubit>().validatedPasskey(cleanedPhrase , context);
       
     } catch (e) {
       _showError('An error occurred while validating the recovery phrase');

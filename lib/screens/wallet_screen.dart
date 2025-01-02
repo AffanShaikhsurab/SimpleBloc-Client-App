@@ -394,7 +394,7 @@ class _WalletScreenState extends State<WalletScreen> with SingleTickerProviderSt
                 Padding(
                   padding: EdgeInsets.only(bottom: 6),
                   child: Text(
-                    'ETH',
+                    'SMP',
                     style: TextStyle(
                       color: Colors.purple[200],
                       fontSize: 20,
@@ -642,7 +642,7 @@ child: transactions.isEmpty
                   ),
                   SizedBox(height: 4),
                   Text(
-                    'ETH',
+                    'SMP',
                     style: TextStyle(
                       color: Colors.white70,
                       fontSize: 12,

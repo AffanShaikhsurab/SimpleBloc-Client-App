@@ -144,7 +144,7 @@ class _PasswordEntryScreenState extends State<PasswordEntryScreen> with SingleTi
           opacity: _fadeAnimation,
           child: SlideTransition(
             position: _slideAnimation,
-            child: Image.asset('assets/logo.png', height: 150),
+            child: Image.asset('./assest/logo.png', height: 150),
           ),
         ),
         SizedBox(height: 48),

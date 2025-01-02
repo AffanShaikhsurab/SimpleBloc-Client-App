@@ -9,13 +9,32 @@ import 'package:simplicity_coin/blocs/process_bloc.dart';
 import 'package:simplicity_coin/blocs/wallet_bloc.dart';
 
 
+
 Future<Process> startServerProcess(String url) async {
-  return await Process.start(
-    'python',
-    ['./server/app.py', '--url', url],
-    mode: ProcessStartMode.detachedWithStdio,
-    runInShell: true,  // Add this to run in shell mode
-  );
+  try {
+    // Install required dependencies using pip
+    print('Installing dependencies...');
+    await Process.start(
+      'python',
+      ['-m', 'pip', 'install', 'pybase64', 'Flask', 'Flask-Cors', 'requests', 'schedule', 'ecdsa', 'firebase-admin', 'base58', 'starkbank-ecdsa', 'elliptic-curve', 'Flask-CORS'],
+      mode: ProcessStartMode.detachedWithStdio,
+      runInShell: true, // Run in shell mode to handle multiple arguments properly
+    );
+
+    print('Dependencies installed successfully.');
+
+    // Start the server process
+    print('Starting the server...');
+    return await Process.start(
+      'python',
+      ['./server/app.py', '--url', url],
+      mode: ProcessStartMode.detachedWithStdio,
+      runInShell: true, // Run in shell mode
+    );
+  } catch (e) {
+    print('An error occurred: $e');
+    rethrow; // Re-throw the exception to let the caller handle it if needed
+  }
 }
 Future<Process> startTunnelProcess() async {
   // Add runInShell: true to run in a separate shell

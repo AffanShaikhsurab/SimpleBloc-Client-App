@@ -49,46 +49,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.1.1"
-  camera:
-    dependency: transitive
-    description:
-      name: camera
-      sha256: "26ff41045772153f222ffffecba711a206f670f5834d40ebf5eed3811692f167"
-      url: "https://pub.dev"
-    source: hosted
-    version: "0.11.0+2"
-  camera_android_camerax:
-    dependency: transitive
-    description:
-      name: camera_android_camerax
-      sha256: "2985b8e5fca62709ebb2150962b1dae0444ba0a112be888ccf21e8371a1406d9"
-      url: "https://pub.dev"
-    source: hosted
-    version: "0.6.10+1"
-  camera_avfoundation:
-    dependency: transitive
-    description:
-      name: camera_avfoundation
-      sha256: "2e4c568f70e406ccb87376bc06b53d2f5bebaab71e2fbcc1a950e31449381bcf"
-      url: "https://pub.dev"
-    source: hosted
-    version: "0.9.17+5"
-  camera_platform_interface:
-    dependency: transitive
-    description:
-      name: camera_platform_interface
-      sha256: b3ede1f171532e0d83111fe0980b46d17f1aa9788a07a2fbed07366bbdbb9061
-      url: "https://pub.dev"
-    source: hosted
-    version: "2.8.0"
-  camera_web:
-    dependency: transitive
-    description:
-      name: camera_web
-      sha256: "595f28c89d1fb62d77c73c633193755b781c6d2e0ebcd8dc25b763b514e6ba8f"
-      url: "https://pub.dev"
-    source: hosted
-    version: "0.3.5"
   characters:
     dependency: transitive
     description:
@@ -97,14 +57,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.3.0"
-  charset:
-    dependency: transitive
-    description:
-      name: charset
-      sha256: "27802032a581e01ac565904ece8c8962564b1070690794f0072f6865958ce8b9"
-      url: "https://pub.dev"
-    source: hosted
-    version: "2.0.1"
   checked_yaml:
     dependency: transitive
     description:
@@ -145,14 +97,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "3.1.2"
-  cross_file:
-    dependency: transitive
-    description:
-      name: cross_file
-      sha256: "7caf6a750a0c04effbb52a676dce9a4a592e10ad35c34d6d2d0e4811160d5670"
-      url: "https://pub.dev"
-    source: hosted
-    version: "0.3.4+2"
   crypto:
     dependency: "direct main"
     description:
@@ -162,7 +106,7 @@ packages:
     source: hosted
     version: "3.0.6"
   equatable:
-    dependency: transitive
+    dependency: "direct main"
     description:
       name: equatable
       sha256: "567c64b3cb4cf82397aac55f4f0cbd3ca20d77c6c03bedbc4ceaddc08904aef7"
@@ -230,14 +174,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "5.0.0"
-  flutter_plugin_android_lifecycle:
-    dependency: transitive
-    description:
-      name: flutter_plugin_android_lifecycle
-      sha256: "615a505aef59b151b46bbeef55b36ce2b6ed299d160c51d84281946f0aa0ce0e"
-      url: "https://pub.dev"
-    source: hosted
-    version: "2.0.24"
   flutter_shaders:
     dependency: transitive
     description:
@@ -392,14 +328,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.15.0"
-  mobile_scanner:
-    dependency: "direct main"
-    description:
-      name: mobile_scanner
-      sha256: "728828a798d1a2ee506beb652ca23d974c542c96ed03dcbd5eaf97bef96cdaad"
-      url: "https://pub.dev"
-    source: hosted
-    version: "6.0.2"
   nested:
     dependency: transitive
     description:
@@ -528,14 +456,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "3.0.2"
-  qr_code_dart_scan:
-    dependency: "direct main"
-    description:
-      name: qr_code_dart_scan
-      sha256: fe737657861ea065da40a96e97fdc001b9dcf972e3388c361bb482b563783917
-      url: "https://pub.dev"
-    source: hosted
-    version: "0.9.4"
   qr_flutter:
     dependency: "direct main"
     description:
@@ -637,14 +557,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.1.2"
-  stream_transform:
-    dependency: transitive
-    description:
-      name: stream_transform
-      sha256: ad47125e588cfd37a9a7f86c7d6356dde8dfe89d071d293f80ca9e9273a33871
-      url: "https://pub.dev"
-    source: hosted
-    version: "2.1.1"
   string_scanner:
     dependency: transitive
     description:
@@ -749,14 +661,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "3.1.3"
-  zxing_lib:
-    dependency: transitive
-    description:
-      name: zxing_lib
-      sha256: "870a63610be3f20009ca9201f7ba2d53d7eaefa675c154b3e8c1f6fc55984d04"
-      url: "https://pub.dev"
-    source: hosted
-    version: "1.1.2"
 sdks:
   dart: ">=3.5.0 <4.0.0"
   flutter: ">=3.24.0"

@@ -4,8 +4,8 @@ import 'package:simplicity_coin/main.dart';
 
 class ViewTransactionsScreen extends StatelessWidget {
   final List<Map<String, dynamic>> _transactions = [
-    {'type': 'Sent', 'amount': '-0.1 ETH', 'to': '0x5678...9012', 'date': '2023-05-01'},
-    {'type': 'Received', 'amount': '+0.5 ETH', 'from': '0x3456...7890', 'date': '2023-04-28'},
+    {'type': 'Sent', 'amount': '-0.1 SMP', 'to': '0x5678...9012', 'date': '2023-05-01'},
+    {'type': 'Received', 'amount': '+0.5 SMP', 'from': '0x3456...7890', 'date': '2023-04-28'},
     // Add more transaction data here
   ];
 
